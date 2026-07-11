@@ -5,14 +5,15 @@ struct ContentView: View {
 
     var body: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 16) {
+            VStack(alignment: .leading, spacing: 12) {
                 header
-                    .padding(.horizontal)
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
 
                 if viewModel.isLoading && viewModel.matches.isEmpty {
                     ProgressView()
                         .frame(maxWidth: .infinity)
-                        .padding()
+                        .padding(.vertical, 40)
                 }
 
                 if let error = viewModel.errorMessage {
@@ -25,59 +26,37 @@ struct ContentView: View {
                             .multilineTextAlignment(.center)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding()
-                }
-
-                if !viewModel.hasLiveMatches && viewModel.upcomingMatches.isEmpty && viewModel.finishedMatches.isEmpty && !viewModel.isLoading && viewModel.errorMessage == nil {
-                    VStack(spacing: 8) {
-                        Text("No matches yet")
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                        Text("The Premier League season starts in August")
-                            .font(.caption)
-                            .foregroundStyle(.tertiary)
-                    }
-                    .frame(maxWidth: .infinity)
                     .padding(.vertical, 30)
                 }
 
-                if viewModel.hasLiveMatches {
-                    HStack {
-                        LiveIndicator()
-                        Text("LIVE")
-                            .font(.caption)
-                            .fontWeight(.bold)
-                            .foregroundColor(.red)
-                    }
-                    .padding(.horizontal)
+                if !viewModel.hasLiveMatches && viewModel.upcomingMatches.isEmpty && viewModel.finishedMatches.isEmpty && !viewModel.isLoading && viewModel.errorMessage == nil {
+                    emptyState
+                }
 
+                if viewModel.hasLiveMatches {
+                    sectionLabel("LIVE NOW")
+                    liveBanner
                     ForEach(viewModel.liveMatches) { match in
-                        MatchRowView(match: match)
-                            .padding(.horizontal)
-                        Divider().opacity(0.3).padding(.horizontal)
+                        matchCard(match)
                     }
                 }
 
                 if !viewModel.upcomingMatches.isEmpty {
-                    sectionHeader("UPCOMING")
-                    ForEach(Array(viewModel.upcomingMatches.prefix(5))) { match in
-                        MatchRowView(match: match)
-                            .padding(.horizontal)
-                        Divider().opacity(0.3).padding(.horizontal)
+                    sectionLabel("UPCOMING")
+                    ForEach(Array(viewModel.upcomingMatches.prefix(4))) { match in
+                        matchCard(match)
                     }
                 }
 
                 if !viewModel.finishedMatches.isEmpty {
-                    sectionHeader("RECENT RESULTS")
-                    ForEach(Array(viewModel.finishedMatches.prefix(5))) { match in
-                        MatchRowView(match: match)
-                            .padding(.horizontal)
-                        Divider().opacity(0.3).padding(.horizontal)
+                    sectionLabel("RESULTS")
+                    ForEach(Array(viewModel.finishedMatches.prefix(4))) { match in
+                        matchCard(match)
                     }
                 }
 
                 if !viewModel.standings.isEmpty {
-                    sectionHeader("")
+                    sectionLabel("")
                     StandingsView(standings: viewModel.standings)
                 }
 
@@ -89,38 +68,76 @@ struct ContentView: View {
                         .padding(.bottom, 4)
                 }
             }
-            .padding(.vertical)
+            .padding(.vertical, 8)
         }
         .frame(width: 340, height: 500)
     }
 
     private var header: some View {
-        HStack {
-            Image(systemName: "soccerball")
-                .foregroundColor(.green)
+        HStack(spacing: 8) {
+            Circle()
+                .fill(.green)
+                .frame(width: 8, height: 8)
             Text("Premier League")
-                .font(.headline)
-                .fontWeight(.bold)
+                .font(.system(size: 13, weight: .semibold))
             Spacer()
             if viewModel.isLoading {
                 ProgressView()
-                    .scaleEffect(0.7)
-                    .frame(width: 30)
+                    .scaleEffect(0.6)
+                    .frame(width: 20, height: 20)
             }
-            Button("Refresh") {
-                Task { await viewModel.refresh() }
+            Button(action: { Task { await viewModel.refresh() } }) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
-            .buttonStyle(.borderless)
-            .font(.caption)
+            .buttonStyle(.plain)
         }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .background(Color(.windowBackgroundColor).opacity(0.5))
+        .cornerRadius(8)
     }
 
-    private func sectionHeader(_ text: String) -> some View {
+    private var emptyState: some View {
+        VStack(spacing: 4) {
+            Text("No matches scheduled")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
+            Text("Season starts 21 Aug 2026")
+                .font(.caption)
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 36)
+    }
+
+    private var liveBanner: some View {
+        HStack(spacing: 6) {
+            Circle()
+                .fill(.red)
+                .frame(width: 6, height: 6)
+            Text("\(viewModel.liveMatchCount) match\(viewModel.liveMatchCount == 1 ? "" : "es") in play")
+                .font(.caption)
+                .fontWeight(.semibold)
+                .foregroundColor(.red)
+        }
+        .padding(.horizontal, 12)
+    }
+
+    private func matchCard(_ match: Match) -> some View {
+        MatchRowView(match: match)
+            .padding(.horizontal, 10)
+            .background(Color(.windowBackgroundColor).opacity(0.3))
+            .cornerRadius(10)
+            .padding(.horizontal, 4)
+    }
+
+    private func sectionLabel(_ text: String) -> some View {
         Text(text)
-            .font(.caption)
-            .fontWeight(.semibold)
+            .font(.system(size: 10, weight: .semibold, design: .monospaced))
             .foregroundColor(.secondary)
-            .padding(.horizontal)
-            .padding(.top, text.isEmpty ? 0 : 4)
+            .padding(.horizontal, 12)
+            .padding(.top, text.isEmpty ? 0 : 2)
     }
 }

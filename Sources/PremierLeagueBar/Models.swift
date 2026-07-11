@@ -24,7 +24,7 @@ struct StandingEntry: Codable, Identifiable {
     let goalsAgainst: Int
     let goalDifference: Int
 
-    var id: Int { position }
+    var id: String { "\(position)-\(team.name)" }
 }
 
 struct TeamInfo: Codable {

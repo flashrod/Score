@@ -27,21 +27,35 @@ struct StandingsView: View {
             .padding(.horizontal)
             .padding(.bottom, 4)
 
-            ForEach(Array(standings.prefix(10).enumerated()), id: \.element.id) { idx, entry in
+            ForEach(Array(standings.prefix(10).enumerated()), id: \.offset) { idx, entry in
                 HStack(spacing: 0) {
                     Text("\(idx + 1)")
                         .frame(width: 24, alignment: .leading)
                         .foregroundColor(positionColor(idx + 1))
-                    HStack(spacing: 4) {
+                    HStack(spacing: 6) {
                         if let crest = entry.team.crest, let url = URL(string: crest) {
                             AsyncImage(url: url) { phase in
-                                if let img = phase.image {
-                                    img.resizable().scaledToFit().frame(width: 14, height: 14)
+                                switch phase {
+                                case .success(let img):
+                                    img.resizable().scaledToFit().padding(2)
+                                case .failure, .empty:
+                                    RoundedRectangle(cornerRadius: 4)
+                                        .fill(Color.gray.opacity(0.15))
+                                        .overlay(
+                                            Text(entry.team.name.prefix(1))
+                                                .font(.system(size: 7))
+                                                .foregroundColor(.secondary)
+                                        )
+                                @unknown default:
+                                    Color.clear
                                 }
                             }
+                            .frame(width: 20, height: 20)
+                            .background(Color(.windowBackgroundColor).opacity(0.5))
+                            .clipShape(RoundedRectangle(cornerRadius: 5))
                         }
-                        Text(entry.team.displayName)
-                            .font(.system(size: 11))
+                        Text(entry.team.name)
+                            .font(.system(size: 10))
                             .lineLimit(1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -59,6 +73,7 @@ struct StandingsView: View {
                 .padding(.vertical, 3)
                 Divider().opacity(0.3)
             }
+
         }
     }
 

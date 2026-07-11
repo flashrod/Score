@@ -4,79 +4,49 @@ struct MatchRowView: View {
     let match: Match
 
     var body: some View {
-        HStack(spacing: 12) {
-            if match.isLive {
-                LiveIndicator()
+        VStack(spacing: 6) {
+            HStack(spacing: 0) {
+                TeamSection(team: match.homeTeam, alignment: .leading)
+                ScoreSection(match: match)
+                TeamSection(team: match.awayTeam, alignment: .trailing)
             }
 
-            VStack(alignment: .leading, spacing: 6) {
-                HStack {
-                    TeamLabel(team: match.homeTeam, alignment: .leading)
-                    Spacer()
-                    ScoreBadge(match: match)
-                    Spacer()
-                    TeamLabel(team: match.awayTeam, alignment: .trailing)
+            HStack(spacing: 4) {
+                if match.isLive {
+                    LiveBadge()
                 }
-
-                HStack {
-                    if match.isLive {
-                        Text("LIVE")
-                            .font(.caption2)
-                            .fontWeight(.bold)
-                            .foregroundColor(.red)
-                    }
-                    Text(match.dateFormatted)
-                        .font(.caption2)
-                        .foregroundColor(.secondary)
-                    Spacer()
-                    Text(match.statusDisplay)
-                        .font(.caption2)
-                        .fontWeight(match.isLive ? .bold : .regular)
-                        .foregroundColor(match.isLive ? .red : .secondary)
-                }
+                Text(match.dateFormatted)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(match.statusDisplay)
+                    .font(.caption2)
+                    .fontWeight(match.isLive ? .bold : .regular)
+                    .foregroundColor(match.isLive ? .red : .secondary)
             }
+            .padding(.horizontal, 4)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 6)
     }
 }
 
-struct LiveIndicator: View {
-    @State private var animate = false
-
-    var body: some View {
-        Circle()
-            .fill(.red)
-            .frame(width: 8, height: 8)
-            .opacity(animate ? 1 : 0.3)
-            .onAppear {
-                withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
-                    animate.toggle()
-                }
-            }
-    }
-}
-
-struct TeamLabel: View {
+struct TeamSection: View {
     let team: Match.Team
     let alignment: HorizontalAlignment
 
     var body: some View {
-        HStack(spacing: 6) {
-            if alignment == .trailing {
-                Text(team.displayName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-                crestView
-            } else {
-                crestView
-                Text(team.displayName)
-                    .font(.subheadline)
-                    .fontWeight(.medium)
-                    .lineLimit(1)
-            }
+        VStack(spacing: 6) {
+            crestView
+                .frame(width: 40, height: 40)
+                .background(Color(.windowBackgroundColor).opacity(0.5))
+                .clipShape(RoundedRectangle(cornerRadius: 8))
+            Text(team.displayName)
+                .font(.caption)
+                .fontWeight(.semibold)
+                .lineLimit(1)
+                .foregroundColor(.primary)
         }
-        .frame(maxWidth: 120, alignment: alignment == .leading ? .leading : .trailing)
+        .frame(maxWidth: .infinity)
     }
 
     @ViewBuilder
@@ -84,42 +54,86 @@ struct TeamLabel: View {
         if let url = team.crest.flatMap({ URL(string: $0) }) {
             AsyncImage(url: url) { phase in
                 switch phase {
-                case .success(let image):
-                    image.resizable().scaledToFit().frame(width: 18, height: 18)
-                default:
-                    Rectangle().fill(.clear).frame(width: 18, height: 18)
+                case .success(let img):
+                    img.resizable().scaledToFit().padding(4)
+                case .failure:
+                    placeholderCrest
+                case .empty:
+                    ProgressView().scaleEffect(0.5)
+                @unknown default:
+                    placeholderCrest
                 }
             }
+        } else {
+            placeholderCrest
         }
+    }
+
+    private var placeholderCrest: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.gray.opacity(0.15))
+            .overlay(
+                Text(team.displayName.prefix(1))
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            )
     }
 }
 
-struct ScoreBadge: View {
+struct ScoreSection: View {
     let match: Match
 
     var body: some View {
-        HStack(spacing: 4) {
-            if let home = match.score.fullTime?.home, let away = match.score.fullTime?.away {
-                Text("\(home)")
-                    .font(.system(.body, design: .monospaced))
-                    .fontWeight(.bold)
-                    .foregroundColor(match.isLive ? .primary : .primary)
-                Text(":")
-                    .font(.system(.body, design: .monospaced))
-                    .fontWeight(.bold)
-                Text("\(away)")
-                    .font(.system(.body, design: .monospaced))
-                    .fontWeight(.bold)
-                    .foregroundColor(match.isLive ? .primary : .primary)
-            } else {
-                Text("vs")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
+        VStack(spacing: 2) {
+            HStack(spacing: 6) {
+                if let home = match.score.fullTime?.home, let away = match.score.fullTime?.away {
+                    Text("\(home)")
+                        .font(.system(size: 26, weight: .bold, design: .monospaced))
+                        .foregroundColor(match.isLive ? .primary : .primary)
+                    Text(":")
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    Text("\(away)")
+                        .font(.system(size: 26, weight: .bold, design: .monospaced))
+                        .foregroundColor(match.isLive ? .primary : .primary)
+                } else {
+                    Text("–")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.secondary)
+                    Text(":")
+                        .font(.system(size: 20, weight: .bold, design: .monospaced))
+                        .foregroundColor(.secondary)
+                    Text("–")
+                        .font(.system(size: 18, weight: .medium))
+                        .foregroundColor(.secondary)
+                }
             }
         }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 3)
-        .background(match.isLive ? Color.red.opacity(0.12) : Color.gray.opacity(0.08))
-        .cornerRadius(6)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 4)
+        .background(match.isLive ? Color.red.opacity(0.08) : Color.clear)
+        .cornerRadius(10)
+    }
+}
+
+struct LiveBadge: View {
+    @State private var animate = false
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Circle()
+                .fill(.red)
+                .frame(width: 6, height: 6)
+                .opacity(animate ? 1 : 0.3)
+            Text("LIVE")
+                .font(.caption2)
+                .fontWeight(.bold)
+                .foregroundColor(.red)
+        }
+        .onAppear {
+            withAnimation(.easeInOut(duration: 1).repeatForever(autoreverses: true)) {
+                animate.toggle()
+            }
+        }
     }
 }
