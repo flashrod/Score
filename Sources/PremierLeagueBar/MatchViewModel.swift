@@ -16,7 +16,8 @@ class MatchViewModel: ObservableObject {
         refreshTask = Task {
             await refresh()
             while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: 60_000_000_000)
+                let interval: UInt64 = hasLiveMatches ? 15_000_000_000 : 60_000_000_000
+                try? await Task.sleep(nanoseconds: interval)
                 await refresh()
             }
         }
