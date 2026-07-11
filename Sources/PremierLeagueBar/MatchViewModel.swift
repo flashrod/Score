@@ -10,6 +10,7 @@ class MatchViewModel: ObservableObject {
 
     private let api = APIService.shared
     private var refreshTask: Task<Void, Never>?
+    private let notchController = NotchController()
 
     private let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -66,6 +67,9 @@ class MatchViewModel: ObservableObject {
             matches = fetchedMatches
             standings = fetchedStandings
             lastRefreshed = Date()
+            if let pinned = pinnedMatch {
+                notchController.update(match: pinned)
+            }
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -102,8 +106,10 @@ class MatchViewModel: ObservableObject {
     func togglePin(_ matchId: Int) {
         if pinnedMatchId == matchId {
             pinnedMatchId = nil
-        } else {
+            notchController.hide()
+        } else if let match = matches.first(where: { $0.id == matchId }) {
             pinnedMatchId = matchId
+            notchController.show(match: match)
         }
     }
 
