@@ -11,12 +11,23 @@ class MatchViewModel: ObservableObject {
     private let api = APIService.shared
     private var refreshTask: Task<Void, Never>?
 
+    private let isoFormatter: ISO8601DateFormatter = {
+        let f = ISO8601DateFormatter()
+        return f
+    }()
+
+    @Published var pollingPaused = false
+
     func startPolling() {
+        pollingPaused = false
         refreshTask?.cancel()
         refreshTask = Task {
             await refresh()
             while !Task.isCancelled {
-                let interval: UInt64 = hasLiveMatches ? 15_000_000_000 : 60_000_000_000
+                guard let interval = nextPollInterval else {
+                    pollingPaused = true
+                    break
+                }
                 try? await Task.sleep(nanoseconds: interval)
                 await refresh()
             }
@@ -26,6 +37,23 @@ class MatchViewModel: ObservableObject {
     func stopPolling() {
         refreshTask?.cancel()
         refreshTask = nil
+    }
+
+    private var nextPollInterval: UInt64? {
+        if hasLiveMatches {
+            return 15_000_000_000
+        }
+        let now = Date()
+        let twoHours: TimeInterval = 7200
+        for match in upcomingMatches {
+            if let date = isoFormatter.date(from: match.utcDate) {
+                let timeUntil = date.timeIntervalSince(now)
+                if timeUntil > 0 && timeUntil <= twoHours {
+                    return 300_000_000_000
+                }
+            }
+        }
+        return nil
     }
 
     func refresh() async {

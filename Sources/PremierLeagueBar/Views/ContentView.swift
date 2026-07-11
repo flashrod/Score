@@ -61,11 +61,19 @@ struct ContentView: View {
                 }
 
                 if let lastRefreshed = viewModel.lastRefreshed {
-                    Text("Updated \(lastRefreshed.formatted(date: .omitted, time: .shortened))")
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity)
-                        .padding(.bottom, 4)
+                    HStack(spacing: 4) {
+                        Text("Updated \(lastRefreshed.formatted(date: .omitted, time: .shortened))")
+                        if viewModel.pollingPaused {
+                            Circle().fill(.orange).frame(width: 4, height: 4)
+                            Text("auto-refresh paused")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 4)
                 }
             }
             .padding(.vertical, 8)
@@ -119,6 +127,9 @@ struct ContentView: View {
                 .foregroundColor(.secondary)
             Text("Season starts 21 Aug 2026")
                 .font(.caption)
+                .foregroundStyle(.tertiary)
+            Text("Auto-refresh paused. Tap Refresh for latest.")
+                .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
         .frame(maxWidth: .infinity)
