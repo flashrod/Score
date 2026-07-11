@@ -49,26 +49,27 @@ This kills any running instance, builds the `.app` bundle, and launches it with 
 ## Architecture
 
 ```
-APIService (actor)
-    ↕ fetches
-MatchViewModel (ObservableObject)
-    ├── match list + standings → ContentView (popover)
-    ├── pinned match → presenter.show/update
-    └── MatchEventEngine.detect(from:old, to:new) → [MatchEvent]
-                                               ↓
-                                          EventQueue
-                                               ↓
-                               DynamicNotchPresenter
-                         (expand → show → wait → compact)
-                                               ↓
-                              DynamicNotch<Compact, Expanded>
+PollingPolicy (pure) ──────→ MatchViewModel ←── MatchEventEngine (pure)
+                                     │
+                            ┌────────┴────────┐
+                            ↓                 ↓
+                      EventQueue        presenter.show/update
+                            │                 │
+                            ↓                 ↓
+                  DynamicNotchPresenter   DynamicNotch<Compact, Expanded>
 ```
 
-Events flow through an `EventQueue` — the ViewModel posts detected events, and the `DynamicNotchPresenter` consumes them asynchronously, running sequenced expand-show-collapse animations. The ViewModel never calls animation methods directly.
+**Refresh flow (single loop, one API request):**
+1. Snapshot `matches` → `previousMatches`
+2. Fetch `GET /v4/competitions/PL/matches` (single request)
+3. Engine detects events by comparing full snapshots
+4. Presenter updates pinned match data
+5. Events posted to EventQueue for animation
+6. `PollingPolicy.interval(for: pinnedMatch)` determines next wait
 
-**MatchEventEngine** is a pure function — no SwiftUI, no networking, no side effects. It compares two `Match` snapshots and returns detected events. Adding a new event type requires exactly 3 changes: the enum case, the detection logic, and the animation handling — nothing else.
+**MatchEventEngine** — pure function comparing full `[Match]` snapshots. No SwiftUI, no networking, no side effects. Adding a new event requires: enum case, detection logic, animation handling — nothing else.
 
-Only the pinned match is compared, not all 380 returned matches.
+**PollingPolicy** — pure interval logic based on match status and minute. Emits intervals from 3s (90+ min) to 5min (postponed/cancelled).
 
 ## Events Detected
 

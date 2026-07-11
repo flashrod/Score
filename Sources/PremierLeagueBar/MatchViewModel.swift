@@ -15,7 +15,6 @@ class MatchViewModel: ObservableObject {
     let eventQueue = EventQueue()
     private lazy var presenter = DynamicNotchPresenter(eventQueue: eventQueue)
 
-    private var oldPinnedMatch: Match?
     nonisolated(unsafe) private var testObserver: NSObjectProtocol?
 
     nonisolated(unsafe) static weak var shared: MatchViewModel?
@@ -26,8 +25,6 @@ class MatchViewModel: ObservableObject {
             setupTestEventObserver()
         }
     }
-
-
 
     private func setupTestEventObserver() {
         testObserver = DistributedNotificationCenter.default().addObserver(
@@ -52,25 +49,13 @@ class MatchViewModel: ObservableObject {
         }
     }
 
-    private let isoFormatter: ISO8601DateFormatter = {
-        let f = ISO8601DateFormatter()
-        return f
-    }()
-
-    @Published var pollingPaused = false
-
     func startPolling() {
-        pollingPaused = false
         refreshTask?.cancel()
         refreshTask = Task {
-            await refresh()
             while !Task.isCancelled {
-                guard let interval = nextPollInterval else {
-                    pollingPaused = true
-                    break
-                }
-                try? await Task.sleep(nanoseconds: interval)
                 await refresh()
+                let interval = PollingPolicy.interval(for: pinnedMatch)
+                try? await Task.sleep(nanoseconds: interval)
             }
         }
     }
@@ -80,37 +65,21 @@ class MatchViewModel: ObservableObject {
         refreshTask = nil
     }
 
-    private var nextPollInterval: UInt64? {
-        if hasLiveMatches {
-            return 15_000_000_000
-        }
-        let now = Date()
-        let twoHours: TimeInterval = 7200
-        for match in upcomingMatches {
-            if let date = isoFormatter.date(from: match.utcDate) {
-                let timeUntil = date.timeIntervalSince(now)
-                if timeUntil > 0 && timeUntil <= twoHours {
-                    return 300_000_000_000
-                }
-            }
-        }
-        return nil
-    }
-
     func refresh() async {
         isLoading = true
         errorMessage = nil
         do {
-            let oldPinned = self.pinnedMatch
+            let previousMatches = matches
             async let matchesTask = api.fetchMatches()
             async let standingsTask = api.fetchStandings()
             let (fetchedMatches, fetchedStandings) = await (try matchesTask, try standingsTask)
             matches = fetchedMatches
             standings = fetchedStandings
             lastRefreshed = Date()
+
             if let pinned = pinnedMatch {
+                let events = MatchEventEngine.detect(from: previousMatches, to: matches, forMatchId: pinned.id)
                 let next = nextMatch(after: pinned.utcDate)
-                let events = MatchEventEngine.detect(from: oldPinned, to: pinned)
                 presenter.update(match: pinned, nextMatch: next)
                 for event in events {
                     eventQueue.enqueue(event)
@@ -161,12 +130,10 @@ class MatchViewModel: ObservableObject {
     func togglePin(_ matchId: Int) {
         if pinnedMatchId == matchId {
             pinnedMatchId = nil
-            oldPinnedMatch = nil
             presenter.hide()
             eventQueue.enqueue(.matchUnpinned)
         } else if let match = matches.first(where: { $0.id == matchId }) {
             pinnedMatchId = matchId
-            oldPinnedMatch = match
             let next = nextMatch(after: match.utcDate)
             presenter.show(match: match, nextMatch: next)
             eventQueue.enqueue(.matchPinned)

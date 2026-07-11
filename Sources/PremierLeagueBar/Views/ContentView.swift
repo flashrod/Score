@@ -68,12 +68,6 @@ struct ContentView: View {
                 if let lastRefreshed = viewModel.lastRefreshed {
                     HStack(spacing: 4) {
                         Text("Updated \(lastRefreshed.formatted(date: .omitted, time: .shortened))")
-                        if viewModel.pollingPaused {
-                            Circle().fill(.orange).frame(width: 4, height: 4)
-                            Text("auto-refresh paused")
-                                .font(.caption2)
-                                .foregroundStyle(.tertiary)
-                        }
                     }
                     .font(.caption2)
                     .foregroundStyle(.tertiary)

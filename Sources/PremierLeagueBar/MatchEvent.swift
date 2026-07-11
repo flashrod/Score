@@ -122,4 +122,19 @@ enum MatchEventEngine {
 
         return events
     }
+
+    /// Detects events by comparing full match snapshots.
+    /// Returns events for the match matching the given ID.
+    ///
+    /// - Parameters:
+    ///   - old: Previous `[Match]` snapshot (before refresh).
+    ///   - new: Current `[Match]` snapshot (after refresh).
+    ///   - id: The match ID to detect events for.
+    /// - Returns: An ordered array of `MatchEvent`s for that match.
+    static func detect(from old: [Match], to new: [Match], forMatchId id: Int) -> [MatchEvent] {
+        let oldMatch = old.first { $0.id == id }
+        let newMatch = new.first { $0.id == id }
+        guard let newMatch else { return [] }
+        return detect(from: oldMatch, to: newMatch)
+    }
 }
