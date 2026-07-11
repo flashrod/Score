@@ -3,3 +3,4 @@
 *.xcuserdata
 *.xcodeproj/project.xcworkspace/
 AGENTS.md
+debug_*.json
