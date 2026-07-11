@@ -68,7 +68,8 @@ class MatchViewModel: ObservableObject {
             standings = fetchedStandings
             lastRefreshed = Date()
             if let pinned = pinnedMatch {
-                notchController.update(match: pinned)
+                let next = nextMatch(after: pinned.utcDate)
+                notchController.update(match: pinned, nextMatch: next, pinnedIsLive: pinned.isLive)
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -109,8 +110,13 @@ class MatchViewModel: ObservableObject {
             notchController.hide()
         } else if let match = matches.first(where: { $0.id == matchId }) {
             pinnedMatchId = matchId
-            notchController.show(match: match)
+            let next = nextMatch(after: match.utcDate)
+            notchController.show(match: match, nextMatch: next, pinnedIsLive: match.isLive)
         }
+    }
+
+    private func nextMatch(after date: String) -> Match? {
+        upcomingMatches.first { $0.utcDate > date }
     }
 
     var menuBarLabel: String {
