@@ -112,8 +112,15 @@ class MatchViewModel: ObservableObject {
             let home = pinned.homeTeam.displayName
             let away = pinned.awayTeam.displayName
             if let h = pinned.score.fullTime?.home, let a = pinned.score.fullTime?.away {
+                if pinned.isLive, let m = pinned.minute, !m.isEmpty {
+                    return "\(home) \(h)-\(a) \(away) \(m)'"
+                }
+                if pinned.isFinished {
+                    return "\(home) \(h)-\(a) \(away) FT"
+                }
                 return "\(home) \(h)-\(a) \(away)"
             }
+            if pinned.isLive { return "\(home) 0-0 \(away) 0'" }
             return "\(home) vs \(away)"
         }
         if hasLiveMatches {

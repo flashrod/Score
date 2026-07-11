@@ -45,6 +45,7 @@ struct Match: Codable, Identifiable {
     let utcDate: String
     let stage: String?
     let matchday: Int?
+    let minute: String?
 
     struct Team: Codable {
         let name: String
@@ -78,7 +79,9 @@ struct Match: Codable, Identifiable {
         switch status {
         case "SCHEDULED": return "UPCOMING"
         case "TIMED": return "UPCOMING"
-        case "IN_PLAY": return "LIVE"
+        case "IN_PLAY":
+            if let m = minute, !m.isEmpty { return "\(m)'" }
+            return "LIVE"
         case "PAUSED": return "HT"
         case "FINISHED": return "FT"
         case "CANCELLED": return "CANC"
