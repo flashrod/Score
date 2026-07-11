@@ -1,4 +1,5 @@
-import Foundation
+@preconcurrency import Foundation
+import AppKit
 
 @MainActor
 class MatchViewModel: ObservableObject {
@@ -15,6 +16,41 @@ class MatchViewModel: ObservableObject {
     private lazy var presenter = DynamicNotchPresenter(eventQueue: eventQueue)
 
     private var oldPinnedMatch: Match?
+    nonisolated(unsafe) private var testObserver: NSObjectProtocol?
+
+    nonisolated(unsafe) static weak var shared: MatchViewModel?
+
+    init() {
+        Self.shared = self
+        if ProcessInfo.processInfo.environment["DEBUG_ANIMATIONS"] != nil {
+            setupTestEventObserver()
+        }
+    }
+
+
+
+    private func setupTestEventObserver() {
+        testObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Notification.Name("com.premierleaguebar.testEvent"),
+            object: nil,
+            queue: nil
+        ) { notification in
+            guard let raw = notification.object as? String else { return }
+            let event: MatchEvent?
+            switch raw {
+            case "goal": event = .goal(team: .home)
+            case "kickoff": event = .kickoff
+            case "halftime": event = .halftime
+            case "secondHalf": event = .secondHalfStarted
+            case "fulltime": event = .fulltime
+            default: event = nil
+            }
+            guard let event else { return }
+            Task { @MainActor in
+                MatchViewModel.shared?.eventQueue.enqueue(event)
+            }
+        }
+    }
 
     private let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -111,6 +147,15 @@ class MatchViewModel: ObservableObject {
     var pinnedMatch: Match? {
         guard let id = pinnedMatchId else { return nil }
         return matches.first { $0.id == id }
+    }
+
+    var debugMode: Bool {
+        ProcessInfo.processInfo.environment["DEBUG_ANIMATIONS"] != nil
+    }
+
+    func testEvent(_ event: MatchEvent) {
+        guard pinnedMatch != nil else { return }
+        eventQueue.enqueue(event)
     }
 
     func togglePin(_ matchId: Int) {

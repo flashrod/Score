@@ -10,6 +10,11 @@ struct ContentView: View {
                     .padding(.horizontal, 12)
                     .padding(.top, 4)
 
+                if viewModel.debugMode {
+                    debugRow
+                        .padding(.horizontal, 12)
+                }
+
                 if viewModel.isLoading && viewModel.matches.isEmpty {
                     ProgressView()
                         .frame(maxWidth: .infinity)
@@ -118,6 +123,33 @@ struct ContentView: View {
         .padding(.horizontal, 10)
         .background(Color(.windowBackgroundColor).opacity(0.5))
         .cornerRadius(8)
+    }
+
+    private var debugRow: some View {
+        VStack(spacing: 4) {
+            Text("DEBUG ANIMATIONS")
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .foregroundColor(.orange)
+            HStack(spacing: 6) {
+                debugButton("Goal") { viewModel.testEvent(.goal(team: .home)) }
+                debugButton("HT") { viewModel.testEvent(.halftime) }
+                debugButton("2H") { viewModel.testEvent(.secondHalfStarted) }
+                debugButton("FT") { viewModel.testEvent(.fulltime) }
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func debugButton(_ label: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(Color.orange.opacity(0.15))
+                .cornerRadius(4)
+        }
+        .buttonStyle(.plain)
     }
 
     private var emptyState: some View {

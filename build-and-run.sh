@@ -21,7 +21,11 @@ echo "✅ Built: $BUILD_DIR/$APP_NAME.app"
 killall "$APP_NAME" 2>/dev/null || true
 
 # Launch with env var
-FOOTBALL_DATA_API_KEY="$FOOTBALL_DATA_API_KEY" \
-    "$BUILD_DIR/$APP_NAME.app/Contents/MacOS/$APP_NAME" &
+LAUNCH_CMD=(env FOOTBALL_DATA_API_KEY="$FOOTBALL_DATA_API_KEY")
+if [ -n "${DEBUG_ANIMATIONS:-}" ]; then
+    LAUNCH_CMD+=(DEBUG_ANIMATIONS="$DEBUG_ANIMATIONS")
+fi
+LAUNCH_CMD+=("$BUILD_DIR/$APP_NAME.app/Contents/MacOS/$APP_NAME")
+"${LAUNCH_CMD[@]}" &
 disown
 echo "✅ Launched — look for the soccer ball in your menu bar"
