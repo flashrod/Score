@@ -81,6 +81,19 @@ struct ContentView: View {
             Text("Premier League")
                 .font(.system(size: 13, weight: .semibold))
             Spacer()
+            if let pinned = viewModel.pinnedMatch {
+                Image(systemName: "pin.fill").font(.caption2).foregroundColor(.blue)
+                Text("\(pinned.homeTeam.displayName) vs \(pinned.awayTeam.displayName)")
+                    .font(.caption)
+                    .foregroundColor(.blue)
+                Button(action: { viewModel.togglePin(pinned.id) }) {
+                    Image(systemName: "xmark")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Unpin")
+            }
             if viewModel.isLoading {
                 ProgressView()
                     .scaleEffect(0.6)

@@ -2,6 +2,9 @@ import SwiftUI
 
 struct MatchRowView: View {
     let match: Match
+    @EnvironmentObject var viewModel: MatchViewModel
+
+    var isPinned: Bool { viewModel.pinnedMatchId == match.id }
 
     var body: some View {
         VStack(spacing: 6) {
@@ -19,6 +22,13 @@ struct MatchRowView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Spacer()
+                Button(action: { viewModel.togglePin(match.id) }) {
+                    Image(systemName: isPinned ? "pin.fill" : "pin")
+                        .font(.caption2)
+                        .foregroundColor(isPinned ? .blue : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help(isPinned ? "Unpin from menu bar" : "Pin to menu bar")
                 Text(match.statusDisplay)
                     .font(.caption2)
                     .fontWeight(match.isLive ? .bold : .regular)

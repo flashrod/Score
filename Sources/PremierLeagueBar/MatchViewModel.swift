@@ -62,4 +62,34 @@ class MatchViewModel: ObservableObject {
     var liveMatchCount: Int {
         liveMatches.count
     }
+
+    @Published var pinnedMatchId: Int?
+
+    var pinnedMatch: Match? {
+        guard let id = pinnedMatchId else { return nil }
+        return matches.first { $0.id == id }
+    }
+
+    func togglePin(_ matchId: Int) {
+        if pinnedMatchId == matchId {
+            pinnedMatchId = nil
+        } else {
+            pinnedMatchId = matchId
+        }
+    }
+
+    var menuBarLabel: String {
+        if let pinned = pinnedMatch {
+            let home = pinned.homeTeam.displayName
+            let away = pinned.awayTeam.displayName
+            if let h = pinned.score.fullTime?.home, let a = pinned.score.fullTime?.away {
+                return "\(home) \(h)-\(a) \(away)"
+            }
+            return "\(home) vs \(away)"
+        }
+        if hasLiveMatches {
+            return "\(liveMatchCount) LIVE"
+        }
+        return "PL"
+    }
 }

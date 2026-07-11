@@ -13,10 +13,7 @@ struct PremierLeagueBar: App {
             ContentView()
                 .environmentObject(viewModel)
         } label: {
-            let label = viewModel.hasLiveMatches
-                ? "\(viewModel.liveMatchCount) LIVE"
-                : "PL"
-            Label(label, systemImage: "soccerball")
+            Label(viewModel.menuBarLabel, systemImage: "soccerball")
         }
         .menuBarExtraStyle(.window)
     }
