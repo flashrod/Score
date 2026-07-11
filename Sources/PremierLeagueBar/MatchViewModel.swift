@@ -115,8 +115,8 @@ class MatchViewModel: ObservableObject {
 
     var menuBarLabel: String {
         if let pinned = pinnedMatch {
-            let home = pinned.homeTeam.displayName
-            let away = pinned.awayTeam.displayName
+            let home = pinned.homeTeam.shortDisplayName
+            let away = pinned.awayTeam.shortDisplayName
             if let h = pinned.score.fullTime?.home, let a = pinned.score.fullTime?.away {
                 if pinned.isLive, let m = pinned.minute, !m.isEmpty {
                     return "\(home) \(h)-\(a) \(away) \(m)'"

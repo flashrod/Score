@@ -6,6 +6,8 @@ struct MatchRowView: View {
 
     var isPinned: Bool { viewModel.pinnedMatchId == match.id }
 
+    @State private var pinScale: CGFloat = 1.0
+
     var body: some View {
         VStack(spacing: 6) {
             HStack(spacing: 0) {
@@ -15,6 +17,33 @@ struct MatchRowView: View {
             }
 
             HStack(spacing: 4) {
+                ZStack {
+                    Circle()
+                        .fill(isPinned ? Color.blue : Color.secondary.opacity(0.15))
+                        .frame(width: 22, height: 22)
+                    Image(systemName: "pin.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundColor(isPinned ? .white : .secondary)
+                        .rotationEffect(.degrees(isPinned ? 0 : 45))
+                }
+                .scaleEffect(pinScale)
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    NSHapticFeedbackManager.defaultPerformer.perform(
+                        .alignment, performanceTime: .now
+                    )
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                        viewModel.togglePin(match.id)
+                        pinScale = 0.7
+                    }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) {
+                            pinScale = 1.0
+                        }
+                    }
+                }
+                .help(isPinned ? "Unpin" : "Pin")
+
                 if match.isLive {
                     LiveBadge()
                 }
@@ -22,13 +51,6 @@ struct MatchRowView: View {
                     .font(.caption2)
                     .foregroundColor(.secondary)
                 Spacer()
-                Button(action: { viewModel.togglePin(match.id) }) {
-                    Image(systemName: isPinned ? "pin.fill" : "pin")
-                        .font(.caption2)
-                        .foregroundColor(isPinned ? .blue : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help(isPinned ? "Unpin from menu bar" : "Pin to menu bar")
                 Text(match.statusDisplay)
                     .font(.caption2)
                     .fontWeight(match.isLive ? .bold : .regular)
