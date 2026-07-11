@@ -10,7 +10,11 @@ class MatchViewModel: ObservableObject {
 
     private let api = APIService.shared
     private var refreshTask: Task<Void, Never>?
-    private let notchController = NotchController()
+
+    let eventQueue = EventQueue()
+    private lazy var presenter = DynamicNotchPresenter(eventQueue: eventQueue)
+
+    private var oldPinnedMatch: Match?
 
     private let isoFormatter: ISO8601DateFormatter = {
         let f = ISO8601DateFormatter()
@@ -61,6 +65,7 @@ class MatchViewModel: ObservableObject {
         isLoading = true
         errorMessage = nil
         do {
+            let oldPinned = self.pinnedMatch
             async let matchesTask = api.fetchMatches()
             async let standingsTask = api.fetchStandings()
             let (fetchedMatches, fetchedStandings) = await (try matchesTask, try standingsTask)
@@ -69,7 +74,11 @@ class MatchViewModel: ObservableObject {
             lastRefreshed = Date()
             if let pinned = pinnedMatch {
                 let next = nextMatch(after: pinned.utcDate)
-                notchController.update(match: pinned, nextMatch: next, pinnedIsLive: pinned.isLive)
+                let events = MatchEventEngine.detect(from: oldPinned, to: pinned)
+                presenter.update(match: pinned, nextMatch: next)
+                for event in events {
+                    eventQueue.enqueue(event)
+                }
             }
         } catch {
             errorMessage = error.localizedDescription
@@ -107,11 +116,15 @@ class MatchViewModel: ObservableObject {
     func togglePin(_ matchId: Int) {
         if pinnedMatchId == matchId {
             pinnedMatchId = nil
-            notchController.hide()
+            oldPinnedMatch = nil
+            presenter.hide()
+            eventQueue.enqueue(.matchUnpinned)
         } else if let match = matches.first(where: { $0.id == matchId }) {
             pinnedMatchId = matchId
+            oldPinnedMatch = match
             let next = nextMatch(after: match.utcDate)
-            notchController.show(match: match, nextMatch: next, pinnedIsLive: match.isLive)
+            presenter.show(match: match, nextMatch: next)
+            eventQueue.enqueue(.matchPinned)
         }
     }
 

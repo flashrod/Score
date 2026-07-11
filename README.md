@@ -53,15 +53,20 @@ APIService (actor)
     ↕ fetches
 MatchViewModel (ObservableObject)
     ├── match list + standings → ContentView (popover)
-    ├── pinned match → notchController.show/update
+    ├── pinned match → presenter.show/update
     └── MatchEventEngine.detect(from:old, to:new) → [MatchEvent]
                                                ↓
-                                        NotchController.handleEvents
+                                          EventQueue
                                                ↓
-                                        DynamicNotch<Compact, Expanded>
+                               DynamicNotchPresenter
+                         (expand → show → wait → compact)
+                                               ↓
+                              DynamicNotch<Compact, Expanded>
 ```
 
-**MatchEventEngine** is a pure function — no SwiftUI, no networking, no side effects. It compares two `Match` snapshots and returns detected events. Adding a new event type requires exactly 3 changes: the enum case, the detection logic, and the handling — nothing else.
+Events flow through an `EventQueue` — the ViewModel posts detected events, and the `DynamicNotchPresenter` consumes them asynchronously, running sequenced expand-show-collapse animations. The ViewModel never calls animation methods directly.
+
+**MatchEventEngine** is a pure function — no SwiftUI, no networking, no side effects. It compares two `Match` snapshots and returns detected events. Adding a new event type requires exactly 3 changes: the enum case, the detection logic, and the animation handling — nothing else.
 
 Only the pinned match is compared, not all 380 returned matches.
 
