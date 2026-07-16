@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 
-const API_KEY = Deno.env.get("FOOTBALL_DATA_API_KEY")!;
+const API_KEY = Deno.env.get("FOOTBALL_DATA_API_KEY");
+if (!API_KEY) {
+  console.error("FOOTBALL_DATA_API_KEY not set");
+  Deno.exit(1);
+}
 const BASE = "https://api.football-data.org/v4";
 const kv = await Deno.openKv();
 
