@@ -24,13 +24,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         guard let button = statusItem.button else { return }
-        if let appIcon = Bundle.module.image(forResource: "AppIcon") {
-            appIcon.isTemplate = true
-            button.image = appIcon
-        } else {
-            button.image = NSImage(systemSymbolName: "soccerball", accessibilityDescription: "TopScore")
-            button.image?.isTemplate = true
-        }
+        button.image = NSImage(systemSymbolName: "soccerball", accessibilityDescription: "TopScore")
+        button.image?.isTemplate = true
         button.toolTip = "TopScore"
         button.target = self
         button.action = #selector(togglePopover(_:))

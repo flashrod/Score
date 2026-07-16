@@ -1,6 +1,6 @@
 cask "top-score" do
   version "1.0.1"
-  sha256 "0f3cd823e17f2859e7a63092fb2cafcbac749d4a51708f72606d372a46413fbd"
+  sha256 "4660a8005de5bf67b223f4b93056fef96d08ca6c0bccb1af7d44415a26710415"
 
   url "https://github.com/flashrod/Score/releases/download/v#{version}/TopScore-#{version}.dmg"
   name "TopScore"
