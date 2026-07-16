@@ -6,14 +6,14 @@ BUNDLE_ID="com.dylanmascarenhas.PremierLeagueBar"
 VERSION="1.0"
 
 ARCH=$(uname -m)
-BUILD_DIR=".build/${ARCH}-apple-macosx/release"
+BUILD_DIR=".build/${ARCH}-apple-macosx/debug"
 RELEASE_DIR=".release"
 APP_BUNDLE="$RELEASE_DIR/$APP_NAME.app"
 DMG_PATH="$RELEASE_DIR/$APP_NAME-$VERSION.dmg"
 STAGING_DIR="$RELEASE_DIR/staging"
 
-echo "==> Building release binary for $ARCH..."
-swift build -c release
+echo "==> Building binary for $ARCH..."
+swift build
 
 echo "==> Creating .app bundle..."
 rm -rf "$RELEASE_DIR"

@@ -3,20 +3,6 @@ set -euo pipefail
 
 BUILD_DIR=".build/arm64-apple-macosx/debug"
 APP_NAME="PremierLeagueBar"
-PLIST="Sources/$APP_NAME/Resources/APIKeys.plist"
-
-if [ ! -f "$PLIST" ]; then
-    echo "❌ $PLIST not found"
-    echo "   Copy APIKeys.plist.example to Sources/$APP_NAME/Resources/APIKeys.plist and add your key"
-    exit 1
-fi
-
-KEY=$(plutil -extract FootballDataAPIKey raw -o - "$PLIST" 2>/dev/null || true)
-if [ "$KEY" = "YOUR_API_KEY_HERE" ] || [ -z "$KEY" ]; then
-    echo "❌ FootballDataAPIKey in $PLIST is empty or still set to the placeholder"
-    echo "   Get a free key at https://www.football-data.org/ and add it to $PLIST"
-    exit 1
-fi
 
 swift build
 
