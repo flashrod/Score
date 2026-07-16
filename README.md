@@ -22,6 +22,7 @@
 
 ```bash
 brew tap flashrod/tap
+brew trust flashrod/tap
 brew install --cask premier-league-bar
 ```
 
