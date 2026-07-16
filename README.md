@@ -1,84 +1,107 @@
-# Premier League Bar
+<p align="center">
+  <img src="https://img.shields.io/badge/macOS-13%2B-lightgrey" alt="macOS 13+">
+  <img src="https://img.shields.io/badge/Swift-6.1-F05138?logo=swift" alt="Swift 6.1">
+  <img src="https://img.shields.io/github/v/release/flashrod/Score" alt="Release">
+  <img src="https://img.shields.io/github/downloads/flashrod/Score/total" alt="Downloads">
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
+</p>
 
-Live Premier League scores in your macOS menu bar, with a pinned match that wraps around the notch.
+<h1 align="center">Premier League Bar</h1>
 
+<p align="center">
+  Live Premier League scores in your macOS menu bar — no Xcode required.
+</p>
+
+<p align="center">
+  <img src="https://github.com/flashrod/Score/releases/download/v1.0.1/PremierLeagueBar-1.0.1.dmg" alt="" width="1">
+</p>
+
+## Install
+
+### Homebrew
+
+```bash
+brew tap flashrod/tap
+brew install --cask premier-league-bar
 ```
-  ARS  1-1  COV  73'
- ┌──────────────────────┐
- │  1-1 · 73'          │
- │                     │
- │  [crest] [crest]    │
- └──────────────────────┘
-```
 
-Built entirely from the command line — no Xcode required.
+### Manual
+
+1. Download the latest `.dmg` from [releases](https://github.com/flashrod/Score/releases)
+2. Mount the DMG and drag `PremierLeagueBar.app` to your Applications folder
+3. Set your `FOOTBALL_DATA_API_KEY` environment variable (get a free key at [football-data.org](https://www.football-data.org/))
+4. Launch the app
 
 ## Features
 
-- **Menu bar icon** shows pinned match score (or live match count)
-- **Notch wrapping** — pinned match scores sit on either side of the notch using DynamicNotchKit
-- **Live updates** — polls every 15s during matches (or 5min near kickoff)
-- **Popover** — scrollable list of live/upcoming/results matches plus standings table
-- **Pin any match** — click the dot on a match row to pin it to the notch
-- **Goal animation** — the notch re-expands when a goal is scored
-- **Status transitions** — detects kickoff, halftime, second half, full time
-- **Free-tier friendly** — respects the 10 req/min API quota; stops polling when nothing is happening
+- **Menu bar icon** — pinned match score or live match count at a glance
+- **Notch integration** — pinned match wraps around the notch using DynamicNotchKit
+- **Live updates** — polls every 10s during matches, 3s during stoppage time
+- **Goal celebrations** — notch expands with ⚽ GOAL + score animation
+- **Match events** — kickoff, halftime, second half, full time — all detected automatically
+- **Popover** — scrollable match list (live / upcoming / results) with standings table
+- **Free-tier friendly** — stays under 10 req/min, pauses polling when idle
 
-## Requirements
-
-- macOS 13+
-- Swift 6.1 (Command Line Tools — no Xcode needed)
-- [football-data.org](https://www.football-data.org/) API key (free tier)
-
-## Setup
+## Quick Start (from source)
 
 ```bash
 git clone https://github.com/flashrod/Score.git
 cd PremierLeagueBar
 export FOOTBALL_DATA_API_KEY=your_api_key_here
-```
-
-## Build & Run
-
-```bash
 ./build-and-run.sh
 ```
 
-This kills any running instance, builds the `.app` bundle, and launches it with your API key injected from the environment.
+Builds a Swift 6.1 CLI app and launches it in your menu bar.
 
-## Architecture
+## How It Works
 
 ```
-PollingPolicy (pure) ──────→ MatchViewModel ←── MatchEventEngine (pure)
-                                     │
-                            ┌────────┴────────┐
-                            ↓                 ↓
-                      EventQueue        presenter.show/update
-                            │                 │
-                            ↓                 ↓
-                  DynamicNotchPresenter   DynamicNotch<Compact, Expanded>
+PollingPolicy ──→ MatchViewModel ←── MatchEventEngine
+                       │
+                ┌──────┴──────┐
+                ↓              ↓
+          EventQueue    DynamicNotchPresenter
+                              ↓
+                       DynamicNotch
+                     (compact / expanded)
 ```
 
-**Refresh flow (single loop, one API request):**
-1. Snapshot `matches` → `previousMatches`
-2. Fetch `GET /v4/competitions/PL/matches` (single request)
-3. Engine detects events by comparing full snapshots
-4. Presenter updates pinned match data
-5. Events posted to EventQueue for animation
-6. `PollingPolicy.interval(for: pinnedMatch)` determines next wait
+- **Single polling loop** fetches `/v4/competitions/PL/matches` once per cycle
+- **MatchEventEngine** compares full snapshots to detect goals, status changes
+- **EventQueue** FIFO-orders animations so events never overlap
+- **DynamicNotchPresenter** animates each event sequentially (expand → show → collapse)
 
-**MatchEventEngine** — pure function comparing full `[Match]` snapshots. No SwiftUI, no networking, no side effects. Adding a new event requires: enum case, detection logic, animation handling — nothing else.
+### Detected Events
 
-**PollingPolicy** — pure interval logic based on match status and minute. Emits intervals from 3s (90+ min) to 5min (postponed/cancelled).
+| Event | Trigger |
+|-------|---------|
+| ⚽ Goal | Score increase between polls |
+| 🏁 Kickoff | SCHEDULED/TIMED → IN_PLAY |
+| ⏸️ Halftime | IN_PLAY → PAUSED |
+| ▶️ Second Half | PAUSED → IN_PLAY |
+| 🏆 Full Time | → FINISHED |
 
-## Events Detected
+### Polling Intervals
 
-- Goal (home/away) — score increase between polls
-- Kickoff — SCHEDULED/TIMED → IN_PLAY
-- Halftime — IN_PLAY → PAUSED
-- Second Half — PAUSED → IN_PLAY
-- Full Time → FINISHED
-- Match pinned/unpinned (local)
+| Match State | Interval |
+|-------------|----------|
+| Idle (no match pinned) | 60s |
+| Before kickoff (< 15 min) | 30s |
+| Before kickoff (< 5 min) | 15s |
+| In play | 10s |
+| Stoppage time (80-89 min) | 5s |
+| Stoppage time (90+ min) | 3s |
+| Half-time | 15s |
+| Finished / Postponed / Cancelled | 60s / 5min |
+
+## Configuration
+
+Set your `FOOTBALL_DATA_API_KEY` environment variable in your shell profile:
+
+```bash
+# ~/.zshrc
+export FOOTBALL_DATA_API_KEY="your_key_here"
+```
 
 ## License
 
