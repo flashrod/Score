@@ -5,9 +5,16 @@ if (!API_KEY) {
 }
 
 const BASE = "https://api.football-data.org/v4";
-const kv = await Deno.openKv();
+
+let cache: {
+  matches: any[] | null;
+  competitions: any;
+  standings: any;
+  lastRefreshed: number;
+} = { matches: null, competitions: null, standings: null, lastRefreshed: 0 };
 
 let refreshing = false;
+let refreshPromise: Promise<void> | null = null;
 
 function pollInterval(matches: any[] | null): number {
   if (!matches || matches.length === 0) return 60_000;
@@ -42,8 +49,6 @@ function pollInterval(matches: any[] | null): number {
   }
 }
 
-let refreshPromise: Promise<void> | null = null;
-
 async function refresh(): Promise<void> {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
@@ -53,26 +58,23 @@ async function refresh(): Promise<void> {
         fetch(`${BASE}/competitions/PL/matches`, { headers }),
         fetch(`${BASE}/competitions/PL/standings`, { headers }),
       ]);
-      const matchesData = await matchesRes.json();
-      const standingsData = await standingsRes.json();
-      console.log("API status:", matchesRes.status, "matches count:", matchesData?.count, "has matches array:", Array.isArray(matchesData?.matches));
       if (matchesRes.status !== 200) {
-        console.error("matches API error:", matchesRes.status, JSON.stringify(matchesData).slice(0, 500));
+        console.error("matches API error:", matchesRes.status);
         return;
       }
       if (standingsRes.status !== 200) {
-        console.error("standings API error:", standingsRes.status, JSON.stringify(standingsData).slice(0, 500));
+        console.error("standings API error:", standingsRes.status);
         return;
       }
-      const matchesArray = matchesData.matches ?? [];
-      const ts = Date.now();
-      await Promise.all([
-        kv.set(["matches"], matchesArray),
-        kv.set(["matchInfo"], { competition: matchesData.competition, season: matchesData.season, filters: matchesData.filters, resultSet: matchesData.resultSet }),
-        kv.set(["standings"], standingsData.standings ?? standingsData),
-        kv.set(["lastRefreshed"], ts),
-      ]);
-      console.log("refresh OK —", matchesArray.length, "matches");
+      const matchesData = await matchesRes.json();
+      const standingsData = await standingsRes.json();
+      cache = {
+        matches: matchesData.matches ?? [],
+        competitions: { competition: matchesData.competition, season: matchesData.season, filters: matchesData.filters, resultSet: matchesData.resultSet },
+        standings: standingsData.standings ?? standingsData,
+        lastRefreshed: Date.now(),
+      };
+      console.log("refresh OK —", cache.matches.length, "matches");
     } catch (err) {
       console.error("refresh failed:", err);
     } finally {
@@ -84,60 +86,44 @@ async function refresh(): Promise<void> {
 
 Deno.serve(async (req) => {
   const url = new URL(req.url);
-  const headers = { "content-type": "application/json; charset=utf-8" };
+  const json = (data: unknown, status = 200) =>
+    new Response(JSON.stringify(data), {
+      status,
+      headers: { "content-type": "application/json; charset=utf-8" },
+    });
 
   if (url.pathname === "/matches") {
-    let matchesArr = (await kv.get(["matches"])).value as any[] | null;
-    const matchInfo = (await kv.get(["matchInfo"])).value as any | null;
-    const last = (await kv.get(["lastRefreshed"])).value as number || 0;
-    if (!matchesArr || Date.now() - last >= pollInterval(matchesArr)) {
+    const elapsed = Date.now() - cache.lastRefreshed;
+    if (!cache.matches || elapsed >= pollInterval(cache.matches)) {
       await refresh();
-      matchesArr = (await kv.get(["matches"])).value as any[] | null;
     }
-    return new Response(JSON.stringify({
-      filters: matchInfo?.filters ?? {},
-      resultSet: matchInfo?.resultSet ?? { count: matchesArr?.length ?? 0, played: 0 },
-      competition: matchInfo?.competition ?? null,
-      matches: matchesArr ?? [],
-    }), { headers });
+    return json({
+      filters: cache.competitions?.filters ?? {},
+      resultSet: cache.competitions?.resultSet ?? { count: cache.matches?.length ?? 0, played: 0 },
+      competition: cache.competitions?.competition ?? null,
+      matches: cache.matches ?? [],
+    });
   }
 
   if (url.pathname === "/standings") {
-    let standings = (await kv.get(["standings"])).value;
-    const last = (await kv.get(["lastRefreshed"])).value as number || 0;
-    if (!standings || Date.now() - last >= 60_000) {
+    const elapsed = Date.now() - cache.lastRefreshed;
+    if (!cache.standings || elapsed >= 60_000) {
       await refresh();
-      standings = (await kv.get(["standings"])).value;
     }
-    return new Response(JSON.stringify({ standings }), { headers });
+    return json({ standings: cache.standings ?? [] });
   }
 
   if (url.pathname === "/health") {
-    const last = (await kv.get(["lastRefreshed"])).value;
-    return new Response(JSON.stringify({ ok: true, lastRefreshed: last }), { headers });
+    return json({ ok: true, lastRefreshed: cache.lastRefreshed });
   }
 
   if (url.pathname === "/raw") {
     const res = await fetch(`${BASE}/competitions/PL/matches`, {
-      headers: { "X-Auth-Token": API_KEY, "Accept": "application/json" },
+      headers: { "X-Auth-Token": API_KEY },
     });
     const text = await res.text();
-    return new Response(JSON.stringify({ status: res.status, body: text.slice(0, 2000) }), { headers });
+    return json({ status: res.status, size: text.length, preview: text.slice(0, 500) });
   }
 
-  if (url.pathname === "/debug") {
-    const matches = await kv.get(["matches"]);
-    const standings = await kv.get(["standings"]);
-    const last = await kv.get(["lastRefreshed"]);
-    return new Response(JSON.stringify({
-      hasMatches: !!matches.value,
-      matchesType: typeof matches.value,
-      matchesKeys: matches.value ? Object.keys(matches.value as any) : null,
-      matchesCount: (matches.value as any)?.count,
-      matchesArrayLen: (matches.value as any)?.matches?.length,
-      lastRefreshed: last.value,
-    }), { headers });
-  }
-
-  return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers });
+  return json({ error: "not found" }, 404);
 });
