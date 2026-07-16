@@ -108,5 +108,27 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ ok: true, lastRefreshed: last }), { headers });
   }
 
+  if (url.pathname === "/raw") {
+    const res = await fetch(`${BASE}/competitions/PL/matches`, {
+      headers: { "X-Auth-Token": API_KEY, "Accept": "application/json" },
+    });
+    const text = await res.text();
+    return new Response(JSON.stringify({ status: res.status, body: text.slice(0, 2000) }), { headers });
+  }
+
+  if (url.pathname === "/debug") {
+    const matches = await kv.get(["matches"]);
+    const standings = await kv.get(["standings"]);
+    const last = await kv.get(["lastRefreshed"]);
+    return new Response(JSON.stringify({
+      hasMatches: !!matches.value,
+      matchesType: typeof matches.value,
+      matchesKeys: matches.value ? Object.keys(matches.value as any) : null,
+      matchesCount: (matches.value as any)?.count,
+      matchesArrayLen: (matches.value as any)?.matches?.length,
+      lastRefreshed: last.value,
+    }), { headers });
+  }
+
   return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers });
 });
