@@ -2,7 +2,7 @@
 set -euo pipefail
 
 BUILD_DIR=".build/arm64-apple-macosx/debug"
-APP_NAME="PremierLeagueBar"
+APP_NAME="TopScore"
 
 swift build
 

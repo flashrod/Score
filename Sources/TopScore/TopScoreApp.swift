@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 
 @main
-struct PremierLeagueBar: App {
+struct TopScoreApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
@@ -24,10 +24,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.setActivationPolicy(.accessory)
 
         guard let button = statusItem.button else { return }
-        button.image = NSImage(systemSymbolName: "soccerball", accessibilityDescription: "Premier League Bar")
+        button.image = NSImage(systemSymbolName: "soccerball", accessibilityDescription: "TopScore")
         button.image?.isTemplate = true
-        button.title = " PL"
-        button.toolTip = "Premier League Bar"
+        button.title = " TS"
+        button.toolTip = "TopScore"
         button.target = self
         button.action = #selector(togglePopover(_:))
 

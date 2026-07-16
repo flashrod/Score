@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-APP_NAME="PremierLeagueBar"
-BUNDLE_ID="com.dylanmascarenhas.PremierLeagueBar"
+APP_NAME="TopScore"
+BUNDLE_ID="com.dylanmascarenhas.TopScore"
 VERSION="1.0.1"
 
 ARCH=$(uname -m)
@@ -21,10 +21,10 @@ mkdir -p "$APP_BUNDLE/Contents/MacOS"
 mkdir -p "$APP_BUNDLE/Contents/Resources"
 
 cp "$BUILD_DIR/$APP_NAME" "$APP_BUNDLE/Contents/MacOS/$APP_NAME"
-cp "Sources/$APP_NAME/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
+cp "Sources/TopScore/Info.plist" "$APP_BUNDLE/Contents/Info.plist"
 
-if [ -d "Sources/$APP_NAME/Resources" ]; then
-  cp -r "Sources/$APP_NAME/Resources/" "$APP_BUNDLE/Contents/Resources/"
+if [ -d "Sources/TopScore/Resources" ]; then
+  cp -r "Sources/TopScore/Resources/" "$APP_BUNDLE/Contents/Resources/"
 fi
 
 echo "==> Signing app (ad-hoc)..."

@@ -6,14 +6,14 @@
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT License">
 </p>
 
-<h1 align="center">Premier League Bar</h1>
+<h1 align="center">TopScore</h1>
 
 <p align="center">
   Live Premier League scores in your macOS menu bar — no Xcode required.
 </p>
 
 <p align="center">
-  <img src="https://github.com/flashrod/Score/releases/download/v1.0.1/PremierLeagueBar-1.0.1.dmg" alt="" width="1">
+  <img src="https://github.com/flashrod/Score/releases/download/v1.0.1/TopScore-1.0.1.dmg" alt="" width="1">
 </p>
 
 ## Install
@@ -23,7 +23,7 @@
 ```bash
 brew tap flashrod/tap
 brew trust flashrod/tap
-brew install --cask premier-league-bar
+brew install --cask top-score
 ```
 
 > **First launch:** Go to **System Settings → Privacy & Security** → scroll down and click **Open Anyway**. This is needed once because the app is ad-hoc signed (no Apple Developer account).
@@ -31,10 +31,10 @@ brew install --cask premier-league-bar
 ### Manual
 
 1. Download the latest `.dmg` from [releases](https://github.com/flashrod/Score/releases)
-2. Mount the DMG and drag `PremierLeagueBar.app` to your Applications folder
+2. Mount the DMG and drag `TopScore.app` to your Applications folder
 3. **Bypass Gatekeeper** (first launch only — the app is ad-hoc signed, not notarized):
 
-   **Option A:** Right-click `PremierLeagueBar.app` in Finder → **Open** → click **Open** in the dialog.
+   **Option A:** Right-click `TopScore.app` in Finder → **Open** → click **Open** in the dialog.
 
    **Option B:** Go to **System Settings → Privacy & Security** → scroll down and click **Open Anyway** next to the blocked app message.
 
@@ -55,7 +55,7 @@ brew install --cask premier-league-bar
 
 ```bash
 git clone https://github.com/flashrod/Score.git
-cd PremierLeagueBar
+cd TopScore
 ./build-and-run.sh
 ```
 

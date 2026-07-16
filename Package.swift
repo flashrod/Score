@@ -3,16 +3,16 @@
 import PackageDescription
 
 let package = Package(
-    name: "PremierLeagueBar",
+    name: "TopScore",
     platforms: [.macOS(.v13)],
     dependencies: [
         .package(path: "Vendor/DynamicNotchKit")
     ],
     targets: [
         .executableTarget(
-            name: "PremierLeagueBar",
+            name: "TopScore",
             dependencies: ["DynamicNotchKit"],
-            exclude: ["Info.plist"],
+            exclude: ["Info.plist", "Resources/APIKeys.plist"],
             resources: [.process("Resources")]
         )
     ]

@@ -6,4 +6,4 @@ AGENTS.md
 debug_*.json
 
 # API keys
-Sources/PremierLeagueBar/Resources/APIKeys.plist
+Sources/TopScore/Resources/APIKeys.plist
