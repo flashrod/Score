@@ -25,14 +25,49 @@ class MatchViewModel: ObservableObject {
     private var hasRefreshedStandingsOnce = false
     private var needsStandingsRefresh = false
 
+    @Published var favoriteTeams: [String] {
+        didSet { UserDefaults.standard.set(favoriteTeams, forKey: "favoriteTeams") }
+    }
+
     nonisolated(unsafe) private var testObserver: NSObjectProtocol?
 
     nonisolated(unsafe) static weak var shared: MatchViewModel?
 
     init() {
+        favoriteTeams = UserDefaults.standard.stringArray(forKey: "favoriteTeams") ?? []
         Self.shared = self
         if ProcessInfo.processInfo.environment["DEBUG_ANIMATIONS"] != nil {
             setupTestEventObserver()
+        }
+    }
+
+    func toggleFavorite(_ teamName: String) {
+        if favoriteTeams.contains(teamName) {
+            favoriteTeams.removeAll { $0 == teamName }
+        } else {
+            favoriteTeams.append(teamName)
+            if pinnedMatch == nil {
+                checkAutoPin()
+            }
+        }
+    }
+
+    private func checkAutoPin() {
+        guard pinnedMatch == nil else { return }
+        guard !favoriteTeams.isEmpty else { return }
+        let now = Date()
+        let formatter = ISO8601DateFormatter()
+        for match in matches where !match.isLive && !match.isFinished {
+            guard let date = formatter.date(from: match.utcDate) else { continue }
+            let delta = date.timeIntervalSince(now)
+            guard delta > 0, delta <= 15 * 60 else { continue }
+            if favoriteTeams.contains(match.homeTeam.name) || favoriteTeams.contains(match.awayTeam.name) {
+                pinnedMatchId = match.id
+                let next = nextMatch(after: match.utcDate)
+                presenter.show(match: match, nextMatch: next)
+                eventQueue.enqueue(.matchPinned)
+                break
+            }
         }
     }
 
@@ -102,6 +137,10 @@ class MatchViewModel: ObservableObject {
                     hasRefreshedStandingsOnce = true
                     needsStandingsRefresh = false
                 }
+            }
+
+            if pinnedMatchId == nil, !favoriteTeams.isEmpty {
+                checkAutoPin()
             }
 
             if let pinned = pinnedMatch,

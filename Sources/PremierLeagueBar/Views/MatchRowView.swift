@@ -65,18 +65,30 @@ struct MatchRowView: View {
 struct TeamSection: View {
     let team: Match.Team
     let alignment: HorizontalAlignment
+    @EnvironmentObject var viewModel: MatchViewModel
 
     var body: some View {
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             crestView
                 .frame(width: 40, height: 40)
                 .background(Color(.windowBackgroundColor).opacity(0.5))
                 .clipShape(RoundedRectangle(cornerRadius: 8))
+                .overlay(alignment: .topTrailing) {
+                    if viewModel.favoriteTeams.contains(team.name) {
+                        Image(systemName: "star.fill")
+                            .font(.system(size: 8))
+                            .foregroundColor(.yellow)
+                            .offset(x: 4, y: -4)
+                    }
+                }
+                .onTapGesture {
+                    viewModel.toggleFavorite(team.name)
+                }
             Text(team.displayName)
                 .font(.caption)
                 .fontWeight(.semibold)
                 .lineLimit(1)
-                .foregroundColor(.primary)
+                .foregroundColor(viewModel.favoriteTeams.contains(team.name) ? .yellow : .primary)
         }
         .frame(maxWidth: .infinity)
     }
