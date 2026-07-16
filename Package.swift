@@ -12,7 +12,7 @@ let package = Package(
         .executableTarget(
             name: "TopScore",
             dependencies: ["DynamicNotchKit"],
-            exclude: ["Info.plist", "Resources/APIKeys.plist"],
+            exclude: ["Info.plist"],
             resources: [.process("Resources")]
         )
     ]
