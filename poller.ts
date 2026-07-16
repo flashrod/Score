@@ -1,10 +1,13 @@
-const API_KEY = Deno.env.get("FOOTBALL_DATA_API_KEY");
-if (!API_KEY) {
+const FB_API_KEY = Deno.env.get("FOOTBALL_DATA_API_KEY")!;
+const ODDS_API_KEY = Deno.env.get("ODDS_API_KEY")!;
+
+if (!FB_API_KEY) {
   console.error("FOOTBALL_DATA_API_KEY not set");
   Deno.exit(1);
 }
 
-const BASE = "https://api.football-data.org/v4";
+const FB_BASE = "https://api.football-data.org/v4";
+const ODDS_BASE = "https://api.the-odds-api.com/v4";
 
 let cache: {
   matches: any[] | null;
@@ -53,10 +56,10 @@ async function refresh(): Promise<void> {
   if (refreshPromise) return refreshPromise;
   refreshPromise = (async () => {
     try {
-      const headers = { "X-Auth-Token": API_KEY };
+      const headers = { "X-Auth-Token": FB_API_KEY };
       const [matchesRes, standingsRes] = await Promise.all([
-        fetch(`${BASE}/competitions/PL/matches`, { headers }),
-        fetch(`${BASE}/competitions/PL/standings`, { headers }),
+        fetch(`${FB_BASE}/competitions/PL/matches`, { headers }),
+        fetch(`${FB_BASE}/competitions/PL/standings`, { headers }),
       ]);
       if (matchesRes.status !== 200) {
         console.error("matches API error:", matchesRes.status);
@@ -117,9 +120,18 @@ Deno.serve(async (req) => {
     return json({ ok: true, lastRefreshed: cache.lastRefreshed });
   }
 
+  if (url.pathname === "/odds") {
+    if (!ODDS_API_KEY) return json({ error: "odds not configured" }, 503);
+    const oddsUrl = `${ODDS_BASE}/sports/soccer_epl/odds/?apiKey=${ODDS_API_KEY}&regions=uk&markets=h2h`;
+    const res = await fetch(oddsUrl);
+    if (res.status !== 200) return json({ error: "odds API error", status: res.status }, 502);
+    const data = await res.json();
+    return json(data);
+  }
+
   if (url.pathname === "/raw") {
-    const res = await fetch(`${BASE}/competitions/PL/matches`, {
-      headers: { "X-Auth-Token": API_KEY },
+    const res = await fetch(`${FB_BASE}/competitions/PL/matches`, {
+      headers: { "X-Auth-Token": FB_API_KEY },
     });
     const text = await res.text();
     return json({ status: res.status, size: text.length, preview: text.slice(0, 500) });

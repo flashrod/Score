@@ -2,7 +2,7 @@ import Foundation
 
 @MainActor
 final class OddsStore {
-    private let service = OddsService.shared
+    private let api = APIService.shared
     private var cache: [Odds] = []
     private var lastRefresh: Date?
 
@@ -17,7 +17,6 @@ final class OddsStore {
 
     func shouldRefresh(for match: Match) -> Bool {
         guard match.status == "SCHEDULED" || match.status == "TIMED" else { return false }
-        guard !APIConfiguration.shared.oddsAPIKey.isEmpty else { return false }
 
         if odds(for: match) == nil { return true }
 
@@ -34,7 +33,7 @@ final class OddsStore {
 
     func refresh() async {
         do {
-            cache = try await service.fetchOdds()
+            cache = try await api.fetchOdds()
             lastRefresh = Date()
         } catch {
             // Silent — use cached data if available
