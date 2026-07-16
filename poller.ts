@@ -54,9 +54,13 @@ async function refresh(): Promise<void> {
       ]);
       const matchesData = await matchesRes.json();
       const standingsData = await standingsRes.json();
-      if (!matchesData.matches || !Array.isArray(matchesData.matches)) {
-        console.error("unexpected matches response:", JSON.stringify(matchesData).slice(0, 200));
+      console.log("API status:", matchesRes.status, "matches count:", matchesData?.count, "has matches array:", Array.isArray(matchesData?.matches));
+      if (matchesRes.status !== 200) {
+        console.error("matches API error:", matchesRes.status, JSON.stringify(matchesData).slice(0, 500));
         return;
+      }
+      if (standingsRes.status !== 200) {
+        console.error("standings API error:", standingsRes.status, JSON.stringify(standingsData).slice(0, 500));
       }
       const ts = Date.now();
       await Promise.all([
@@ -64,6 +68,7 @@ async function refresh(): Promise<void> {
         kv.set(["standings"], standingsData),
         kv.set(["lastRefreshed"], ts),
       ]);
+      console.log("refresh OK —", matchesData?.matches?.length ?? "?", "matches");
     } catch (err) {
       console.error("refresh failed:", err);
     } finally {
