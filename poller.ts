@@ -9,11 +9,12 @@ const kv = await Deno.openKv();
 
 let refreshing = false;
 
-function pollInterval(matches: any[]): number {
-  const live = matches?.find((m: any) =>
+function pollInterval(matches: any[] | null): number {
+  if (!matches || matches.length === 0) return 60_000;
+  const live = matches.find((m: any) =>
     m.status === "IN_PLAY" || m.status === "PAUSED"
   );
-  const upcoming = matches?.find((m: any) =>
+  const upcoming = matches.find((m: any) =>
     m.status === "SCHEDULED" || m.status === "TIMED"
   );
   const match = live || upcoming;
@@ -61,14 +62,17 @@ async function refresh(): Promise<void> {
       }
       if (standingsRes.status !== 200) {
         console.error("standings API error:", standingsRes.status, JSON.stringify(standingsData).slice(0, 500));
+        return;
       }
+      const matchesArray = matchesData.matches ?? [];
       const ts = Date.now();
       await Promise.all([
-        kv.set(["matches"], matchesData),
-        kv.set(["standings"], standingsData),
+        kv.set(["matches"], matchesArray),
+        kv.set(["matchInfo"], { competition: matchesData.competition, season: matchesData.season, filters: matchesData.filters, resultSet: matchesData.resultSet }),
+        kv.set(["standings"], standingsData.standings ?? standingsData),
         kv.set(["lastRefreshed"], ts),
       ]);
-      console.log("refresh OK —", matchesData?.matches?.length ?? "?", "matches");
+      console.log("refresh OK —", matchesArray.length, "matches");
     } catch (err) {
       console.error("refresh failed:", err);
     } finally {
@@ -83,24 +87,29 @@ Deno.serve(async (req) => {
   const headers = { "content-type": "application/json; charset=utf-8" };
 
   if (url.pathname === "/matches") {
-    const cached = await kv.get(["matches"]);
+    let matchesArr = (await kv.get(["matches"])).value as any[] | null;
+    const matchInfo = (await kv.get(["matchInfo"])).value as any | null;
     const last = (await kv.get(["lastRefreshed"])).value as number || 0;
-    const matches = (cached.value as any)?.matches || [];
-    if (!cached.value || Date.now() - last >= pollInterval(matches)) {
+    if (!matchesArr || Date.now() - last >= pollInterval(matchesArr)) {
       await refresh();
+      matchesArr = (await kv.get(["matches"])).value as any[] | null;
     }
-    const result = await kv.get(["matches"]);
-    return new Response(JSON.stringify(result.value ?? { matches: [] }), { headers });
+    return new Response(JSON.stringify({
+      filters: matchInfo?.filters ?? {},
+      resultSet: matchInfo?.resultSet ?? { count: matchesArr?.length ?? 0, played: 0 },
+      competition: matchInfo?.competition ?? null,
+      matches: matchesArr ?? [],
+    }), { headers });
   }
 
   if (url.pathname === "/standings") {
-    const cached = await kv.get(["standings"]);
+    let standings = (await kv.get(["standings"])).value;
     const last = (await kv.get(["lastRefreshed"])).value as number || 0;
-    if (!cached.value || Date.now() - last >= 60_000) {
+    if (!standings || Date.now() - last >= 60_000) {
       await refresh();
+      standings = (await kv.get(["standings"])).value;
     }
-    const result = await kv.get(["standings"]);
-    return new Response(JSON.stringify(result.value ?? { standings: [{ table: [] }] }), { headers });
+    return new Response(JSON.stringify({ standings }), { headers });
   }
 
   if (url.pathname === "/health") {
