@@ -13,6 +13,9 @@ final class DynamicNotchPresenter: ObservableObject {
     @Published var isLive = false
     @Published var isFinished = false
     @Published var subtitle = ""
+    @Published var homeWinPercent: Int?
+    @Published var drawPercent: Int?
+    @Published var awayWinPercent: Int?
 
     @Published private(set) var animatingEvent: AnimatingEvent?
 
@@ -23,7 +26,10 @@ final class DynamicNotchPresenter: ObservableObject {
 
     private var notch: DynamicNotch<ExpandedScoreView, CompactScoreLeading, CompactScoreTrailing>?
     private let eventQueue: EventQueue
-    private var animationTask: Task<Void, Never>?
+
+    private var pendingEvents: [MatchEvent] = []
+    private var processingTask: Task<Void, Never>?
+    private var hoverExitTask: Task<Void, Never>?
 
     private let dateFormatter: DateFormatter = {
         let f = DateFormatter()
@@ -54,7 +60,7 @@ final class DynamicNotchPresenter: ObservableObject {
             notch?.transitionConfiguration.skipIntermediateHides = true
         }
         animatingEvent = nil
-        Task { await notch?.compact() }
+        Task { @MainActor in await notch?.compact() }
     }
 
     func update(match: Match, nextMatch: Match?) {
@@ -63,10 +69,34 @@ final class DynamicNotchPresenter: ObservableObject {
     }
 
     func hide() {
-        animationTask?.cancel()
-        animationTask = nil
+        processingTask?.cancel()
+        processingTask = nil
+        hoverExitTask?.cancel()
+        hoverExitTask = nil
         animatingEvent = nil
-        Task { await notch?.hide() }
+        pendingEvents.removeAll()
+        let currentNotch = notch
+        notch = nil
+        Task { await currentNotch?.hide() }
+    }
+
+    /// DynamicNotchKit's hover configuration only affects appearance; it does not
+    /// expand or compact the notch. We manage the pre-match hover interaction here.
+    func updatePreMatchHover(_ isHovering: Bool) {
+        guard !isLive, !isFinished, animatingEvent == nil else { return }
+
+        hoverExitTask?.cancel()
+        if isHovering {
+            Task { @MainActor in await notch?.expand() }
+        } else {
+            // Allow the pointer to travel from the compact teams into the expanded
+            // panel without causing a visible close/reopen flicker.
+            hoverExitTask = Task { @MainActor [weak self] in
+                try? await Task.sleep(for: .milliseconds(250))
+                guard !Task.isCancelled else { return }
+                await self?.notch?.compact()
+            }
+        }
     }
 
     // MARK: - Event Handling
@@ -74,44 +104,54 @@ final class DynamicNotchPresenter: ObservableObject {
     private func receive(_ event: MatchEvent) {
         switch event {
         case .matchPinned, .matchUnpinned:
-            animatingEvent = nil
+            break
         default:
-            runAnimation(for: event)
+            pendingEvents.append(event)
+            processQueue()
         }
     }
 
-    private func runAnimation(for event: MatchEvent) {
-        animationTask?.cancel()
-        animationTask = Task { @MainActor in
-            guard notch != nil else { return }
+    private func processQueue() {
+        guard processingTask == nil else { return }
 
-            switch event {
-            case .goal:
-                animatingEvent = .goal(
-                    team: event.goalTeam,
-                    score: "\(homeScore ?? 0)-\(awayScore ?? 0)"
-                )
-            case .kickoff:
-                animatingEvent = .statusChange("Kick Off")
-            case .halftime:
-                animatingEvent = .statusChange("Half Time")
-            case .secondHalfStarted:
-                animatingEvent = .statusChange("Second Half")
-            case .fulltime:
-                animatingEvent = .statusChange("Full Time")
-            case .matchPinned, .matchUnpinned:
-                break
+        processingTask = Task { @MainActor in
+            while !pendingEvents.isEmpty, !Task.isCancelled {
+                let event = pendingEvents.removeFirst()
+                await animate(event)
             }
-
-            await notch?.expand()
-
-            let duration: UInt64 = event.isGoal ? 3_000_000_000 : 2_000_000_000
-            try? await Task.sleep(nanoseconds: duration)
-
-            guard !Task.isCancelled else { return }
-            animatingEvent = nil
-            await notch?.compact()
+            processingTask = nil
         }
+    }
+
+    private func animate(_ event: MatchEvent) async {
+        guard notch != nil else { return }
+
+        switch event {
+        case .goal:
+            animatingEvent = .goal(
+                team: event.goalTeam,
+                score: "\(homeScore ?? 0)-\(awayScore ?? 0)"
+            )
+        case .kickoff:
+            animatingEvent = .statusChange("Kick Off")
+        case .halftime:
+            animatingEvent = .statusChange("Half Time")
+        case .secondHalfStarted:
+            animatingEvent = .statusChange("Second Half")
+        case .fulltime:
+            animatingEvent = .statusChange("Full Time")
+        case .matchPinned, .matchUnpinned:
+            return
+        }
+
+        await notch?.expand()
+
+        let duration: UInt64 = event.isGoal ? 3_000_000_000 : 2_000_000_000
+        try? await Task.sleep(nanoseconds: duration)
+
+        guard !Task.isCancelled else { return }
+        animatingEvent = nil
+        await notch?.compact()
     }
 
     // MARK: - State
@@ -128,7 +168,7 @@ final class DynamicNotchPresenter: ObservableObject {
         isFinished = match.isFinished
     }
 
-    private func updateSubtitle(match: Match, nextMatch: Match?) {
+    private func updateSubtitle(match: Match, nextMatch _: Match?) {
         if match.isLive || match.isFinished {
             if let h = match.score.fullTime?.home, let a = match.score.fullTime?.away {
                 let m = match.minute ?? ""
@@ -137,9 +177,8 @@ final class DynamicNotchPresenter: ObservableObject {
                 subtitle = "Kick off"
             }
         } else {
-            let next: Match? = nextMatch ?? match
-            if let next, let date = isoFormatter.date(from: next.utcDate) {
-                subtitle = "\(next.homeTeam.shortDisplayName) vs \(next.awayTeam.shortDisplayName) · \(dateFormatter.string(from: date))"
+            if let date = isoFormatter.date(from: match.utcDate) {
+                subtitle = "\(match.homeTeam.shortDisplayName) vs \(match.awayTeam.shortDisplayName) · \(dateFormatter.string(from: date))"
             } else {
                 subtitle = ""
             }
@@ -161,10 +200,13 @@ struct CompactScoreLeading: View {
                 Text("\(h)")
                     .font(.system(size: 15, weight: .bold))
                     .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.spring(response: 0.3), value: h)
             }
         }
         .foregroundColor(.white)
         .padding(.horizontal, 8)
+        .onHover(perform: presenter.updatePreMatchHover)
     }
 
     @ViewBuilder
@@ -194,6 +236,8 @@ struct CompactScoreTrailing: View {
                 Text("\(a)")
                     .font(.system(size: 15, weight: .bold))
                     .monospacedDigit()
+                    .contentTransition(.numericText())
+                    .animation(.spring(response: 0.3), value: a)
             }
             Text(presenter.awayTeam)
                 .font(.system(size: 16, weight: .bold))
@@ -201,6 +245,7 @@ struct CompactScoreTrailing: View {
         }
         .foregroundColor(.white)
         .padding(.horizontal, 8)
+        .onHover(perform: presenter.updatePreMatchHover)
     }
 
     @ViewBuilder
@@ -239,6 +284,7 @@ struct ExpandedScoreView: View {
         .foregroundColor(.white)
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
+        .onHover(perform: presenter.updatePreMatchHover)
     }
 
     private var liveContent: some View {
@@ -252,9 +298,21 @@ struct ExpandedScoreView: View {
                 }
             }
             if let h = presenter.homeScore, let a = presenter.awayScore {
-                Text("\(h)-\(a)")
-                    .font(.system(size: 20, weight: .bold))
-                    .monospacedDigit()
+                HStack(spacing: 0) {
+                    Text("\(h)")
+                        .font(.system(size: 20, weight: .bold))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.3), value: h)
+                    Text("-")
+                        .font(.system(size: 20, weight: .bold))
+                        .monospacedDigit()
+                    Text("\(a)")
+                        .font(.system(size: 20, weight: .bold))
+                        .monospacedDigit()
+                        .contentTransition(.numericText())
+                        .animation(.spring(response: 0.3), value: a)
+                }
             }
         }
     }
@@ -273,15 +331,146 @@ struct ExpandedScoreView: View {
     }
 
     private var upcomingContent: some View {
-        VStack(spacing: 4) {
-            Text("Next Game")
-                .font(.caption)
-                .fontWeight(.semibold)
-                .foregroundColor(.white.opacity(0.6))
-            Text(presenter.subtitle)
-                .font(.system(size: 12, weight: .medium))
-                .multilineTextAlignment(.center)
+        Group {
+            if let h = presenter.homeWinPercent,
+               let d = presenter.drawPercent,
+               let a = presenter.awayWinPercent {
+                OddsBreakdownView(
+                    homePercent: h,
+                    drawPercent: d,
+                    awayPercent: a,
+                    subtitle: presenter.subtitle
+                )
+            } else {
+                PreMatchOverviewView(
+                    homeTeam: presenter.homeTeam,
+                    awayTeam: presenter.awayTeam,
+                    homeCrest: presenter.homeCrest,
+                    awayCrest: presenter.awayCrest,
+                    subtitle: presenter.subtitle
+                )
+            }
         }
+        .frame(width: 280)
+        .frame(minHeight: 118)
+    }
+}
+
+// MARK: - Pre-match odds
+
+private struct PreMatchOverviewView: View {
+    let homeTeam: String
+    let awayTeam: String
+    let homeCrest: String?
+    let awayCrest: String?
+    let subtitle: String
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Text("UP NEXT")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(1)
+                .foregroundColor(.white.opacity(0.48))
+
+            HStack(spacing: 12) {
+                crestImage(homeCrest)
+                Text(homeTeam)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
+                Text("VS")
+                    .font(.system(size: 10, weight: .bold, design: .rounded))
+                    .foregroundColor(.white.opacity(0.4))
+                Text(awayTeam)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                crestImage(awayCrest)
+            }
+            .font(.system(size: 12, weight: .semibold))
+            .lineLimit(1)
+
+            Text(subtitle)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.58))
+
+            Text("Market odds will appear here when available")
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.38))
+        }
+    }
+
+    @ViewBuilder
+    private func crestImage(_ urlString: String?) -> some View {
+        if let url = urlString.flatMap(URL.init(string:)) {
+            AsyncImage(url: url) { phase in
+                if case .success(let image) = phase {
+                    image.resizable().scaledToFit()
+                }
+            }
+            .frame(width: 18, height: 18)
+        }
+    }
+}
+
+private struct OddsBreakdownView: View {
+    let homePercent: Int
+    let drawPercent: Int
+    let awayPercent: Int
+    let subtitle: String
+
+    private let homeColor = Color(red: 0.26, green: 0.68, blue: 1.0)
+    private let drawColor = Color.white.opacity(0.34)
+    private let awayColor = Color(red: 1.0, green: 0.53, blue: 0.25)
+
+    private var probabilities: (home: Int, draw: Int, away: Int) {
+        let total = max(homePercent + drawPercent + awayPercent, 1)
+        let home = Int((Double(homePercent) / Double(total) * 100).rounded())
+        let draw = Int((Double(drawPercent) / Double(total) * 100).rounded())
+        return (home, draw, max(0, 100 - home - draw))
+    }
+
+    var body: some View {
+        VStack(spacing: 9) {
+            Text("MATCH ODDS")
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .tracking(1.1)
+                .foregroundColor(.white.opacity(0.48))
+
+            HStack(spacing: 0) {
+                probabilityColumn(label: "HOME WIN", probability: probabilities.home, color: homeColor)
+                probabilityColumn(label: "DRAW", probability: probabilities.draw, color: .white)
+                probabilityColumn(label: "AWAY WIN", probability: probabilities.away, color: awayColor)
+            }
+
+            GeometryReader { geometry in
+                HStack(spacing: 2) {
+                    barSegment(homeColor, fraction: probabilities.home, in: geometry.size.width)
+                    barSegment(drawColor, fraction: probabilities.draw, in: geometry.size.width)
+                    barSegment(awayColor, fraction: probabilities.away, in: geometry.size.width)
+                }
+            }
+            .frame(height: 5)
+            .clipShape(Capsule())
+
+            Text(subtitle)
+                .font(.system(size: 10, weight: .medium))
+                .foregroundColor(.white.opacity(0.55))
+        }
+        .frame(width: 280)
+    }
+
+    private func probabilityColumn(label: String, probability: Int, color: Color) -> some View {
+        VStack(spacing: 1) {
+            Text(label)
+                .font(.system(size: 9, weight: .bold, design: .rounded))
+                .foregroundColor(.white.opacity(0.46))
+            Text("\(probability)%")
+                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .monospacedDigit()
+                .foregroundColor(color)
+        }
+        .frame(maxWidth: .infinity)
+    }
+
+    private func barSegment(_ color: Color, fraction: Int, in availableWidth: CGFloat) -> some View {
+        color.frame(width: max(0, availableWidth * CGFloat(fraction) / 100 - 2))
     }
 }
 

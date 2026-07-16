@@ -8,7 +8,7 @@ actor APIService {
 
     private init() {
         let config = URLSessionConfiguration.default
-        config.httpAdditionalHeaders = ["X-Auth-Token": apiKey]
+        config.httpAdditionalHeaders = ["X-Auth-Token": APIConfiguration.shared.footballDataAPIKey]
         config.timeoutIntervalForRequest = 10
         session = URLSession(configuration: config)
     }
@@ -31,10 +31,3 @@ actor APIService {
         return response.standings.first?.table ?? []
     }
 }
-
-private let apiKey: String = {
-    guard let key = ProcessInfo.processInfo.environment["FOOTBALL_DATA_API_KEY"], !key.isEmpty else {
-        fatalError("FOOTBALL_DATA_API_KEY environment variable not set. Get a free key at https://www.football-data.org/")
-    }
-    return key
-}()

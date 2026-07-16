@@ -1,20 +1,57 @@
+import AppKit
 import SwiftUI
 
 @main
 struct PremierLeagueBar: App {
-    @StateObject private var viewModel = {
-        let vm = MatchViewModel()
-        vm.startPolling()
-        return vm
-    }()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
 
     var body: some Scene {
-        MenuBarExtra {
-            ContentView()
-                .environmentObject(viewModel)
-        } label: {
-            Label(viewModel.menuBarLabel, systemImage: "soccerball")
+        Settings {
+            EmptyView()
         }
-        .menuBarExtraStyle(.window)
+    }
+}
+
+@MainActor
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    private let viewModel = MatchViewModel()
+    private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
+    private let popover = NSPopover()
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Explicit AppKit registration is reliable when the app is launched from
+        // the command line as well as when launched by Finder.
+        NSApp.setActivationPolicy(.accessory)
+
+        guard let button = statusItem.button else { return }
+        button.image = NSImage(systemSymbolName: "soccerball", accessibilityDescription: "Premier League Bar")
+        button.image?.isTemplate = true
+        button.title = " PL"
+        button.toolTip = "Premier League Bar"
+        button.target = self
+        button.action = #selector(togglePopover(_:))
+
+        popover.behavior = .transient
+        popover.contentSize = NSSize(width: 340, height: 500)
+        popover.contentViewController = NSHostingController(
+            rootView: ContentView().environmentObject(viewModel)
+        )
+
+        viewModel.startPolling()
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        viewModel.stopPolling()
+    }
+
+    @objc private func togglePopover(_ sender: Any?) {
+        guard let button = statusItem.button else { return }
+
+        if popover.isShown {
+            popover.performClose(sender)
+        } else {
+            popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+            popover.contentViewController?.view.window?.makeKey()
+        }
     }
 }

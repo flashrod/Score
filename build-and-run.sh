@@ -3,29 +3,31 @@ set -euo pipefail
 
 BUILD_DIR=".build/arm64-apple-macosx/debug"
 APP_NAME="PremierLeagueBar"
+PLIST="Sources/$APP_NAME/Resources/APIKeys.plist"
 
-if [ -z "${FOOTBALL_DATA_API_KEY:-}" ]; then
-    echo "❌ FOOTBALL_DATA_API_KEY not set"
-    echo "   export FOOTBALL_DATA_API_KEY=your_key"
+if [ ! -f "$PLIST" ]; then
+    echo "❌ $PLIST not found"
+    echo "   Copy APIKeys.plist.example to Sources/$APP_NAME/Resources/APIKeys.plist and add your key"
+    exit 1
+fi
+
+KEY=$(plutil -extract FootballDataAPIKey raw -o - "$PLIST" 2>/dev/null || true)
+if [ "$KEY" = "YOUR_API_KEY_HERE" ] || [ -z "$KEY" ]; then
+    echo "❌ FootballDataAPIKey in $PLIST is empty or still set to the placeholder"
+    echo "   Get a free key at https://www.football-data.org/ and add it to $PLIST"
     exit 1
 fi
 
 swift build
-mkdir -p "$BUILD_DIR/$APP_NAME.app/Contents/MacOS"
-cp "$BUILD_DIR/$APP_NAME" "$BUILD_DIR/$APP_NAME.app/Contents/MacOS/$APP_NAME"
-cp "Sources/$APP_NAME/Info.plist" "$BUILD_DIR/$APP_NAME.app/Contents"
 
-echo "✅ Built: $BUILD_DIR/$APP_NAME.app"
+echo "✅ Built: $BUILD_DIR/$APP_NAME"
 
-# Kill existing instance if running
 killall "$APP_NAME" 2>/dev/null || true
 
-# Launch with env var
-LAUNCH_CMD=(env FOOTBALL_DATA_API_KEY="$FOOTBALL_DATA_API_KEY")
+LAUNCH_CMD=("$BUILD_DIR/$APP_NAME")
 if [ -n "${DEBUG_ANIMATIONS:-}" ]; then
-    LAUNCH_CMD+=(DEBUG_ANIMATIONS="$DEBUG_ANIMATIONS")
+    LAUNCH_CMD=(env DEBUG_ANIMATIONS="$DEBUG_ANIMATIONS" "${LAUNCH_CMD[@]}")
 fi
-LAUNCH_CMD+=("$BUILD_DIR/$APP_NAME.app/Contents/MacOS/$APP_NAME")
-"${LAUNCH_CMD[@]}" &
+nohup "${LAUNCH_CMD[@]}" </dev/null >/dev/null 2>&1 &
 disown
 echo "✅ Launched — look for the soccer ball in your menu bar"

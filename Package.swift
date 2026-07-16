@@ -6,13 +6,14 @@ let package = Package(
     name: "PremierLeagueBar",
     platforms: [.macOS(.v13)],
     dependencies: [
-        .package(url: "https://github.com/MrKai77/DynamicNotchKit", from: "1.1.0")
+        .package(path: "Vendor/DynamicNotchKit")
     ],
     targets: [
         .executableTarget(
             name: "PremierLeagueBar",
             dependencies: ["DynamicNotchKit"],
-            exclude: ["Info.plist"]
+            exclude: ["Info.plist"],
+            resources: [.process("Resources")]
         )
     ]
 )

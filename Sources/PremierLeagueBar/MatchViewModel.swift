@@ -14,6 +14,11 @@ class MatchViewModel: ObservableObject {
 
     let eventQueue = EventQueue()
     private lazy var presenter = DynamicNotchPresenter(eventQueue: eventQueue)
+    private let oddsStore = OddsStore()
+
+    private var lastStandingsRefresh: Date?
+    private var hasRefreshedStandingsOnce = false
+    private var needsStandingsRefresh = false
 
     nonisolated(unsafe) private var testObserver: NSObjectProtocol?
 
@@ -70,11 +75,7 @@ class MatchViewModel: ObservableObject {
         errorMessage = nil
         do {
             let previousMatches = matches
-            async let matchesTask = api.fetchMatches()
-            async let standingsTask = api.fetchStandings()
-            let (fetchedMatches, fetchedStandings) = await (try matchesTask, try standingsTask)
-            matches = fetchedMatches
-            standings = fetchedStandings
+            matches = try await api.fetchMatches()
             lastRefreshed = Date()
 
             if let pinned = pinnedMatch {
@@ -82,13 +83,50 @@ class MatchViewModel: ObservableObject {
                 let next = nextMatch(after: pinned.utcDate)
                 presenter.update(match: pinned, nextMatch: next)
                 for event in events {
+                    if event.isGoal || event == .fulltime {
+                        needsStandingsRefresh = true
+                    }
                     eventQueue.enqueue(event)
                 }
+            }
+
+            if shouldRefreshStandings {
+                if let fetchedStandings = try? await api.fetchStandings() {
+                    standings = fetchedStandings
+                    lastStandingsRefresh = Date()
+                    hasRefreshedStandingsOnce = true
+                    needsStandingsRefresh = false
+                }
+            }
+
+            if let pinned = pinnedMatch,
+               pinned.status == "SCHEDULED" || pinned.status == "TIMED"
+            {
+                if oddsStore.shouldRefresh(for: pinned) {
+                    await oddsStore.refresh()
+                }
+                if let odds = oddsStore.odds(for: pinned) {
+                    presenter.homeWinPercent = odds.homeWinPercent
+                    presenter.drawPercent = odds.drawPercent
+                    presenter.awayWinPercent = odds.awayWinPercent
+                }
+            } else {
+                presenter.homeWinPercent = nil
+                presenter.drawPercent = nil
+                presenter.awayWinPercent = nil
             }
         } catch {
             errorMessage = error.localizedDescription
         }
         isLoading = false
+    }
+
+    private var shouldRefreshStandings: Bool {
+        if !hasRefreshedStandingsOnce { return true }
+        if needsStandingsRefresh { return true }
+        guard let last = lastStandingsRefresh else { return true }
+        if hasLiveMatches, Date().timeIntervalSince(last) > 60 { return true }
+        return false
     }
 
     var liveMatches: [Match] {
@@ -137,6 +175,26 @@ class MatchViewModel: ObservableObject {
             let next = nextMatch(after: match.utcDate)
             presenter.show(match: match, nextMatch: next)
             eventQueue.enqueue(.matchPinned)
+            if match.status == "SCHEDULED" || match.status == "TIMED" {
+                // A newly pinned fixture must never briefly display the previous fixture's odds.
+                presenter.homeWinPercent = nil
+                presenter.drawPercent = nil
+                presenter.awayWinPercent = nil
+                if let odds = oddsStore.odds(for: match) {
+                    presenter.homeWinPercent = odds.homeWinPercent
+                    presenter.drawPercent = odds.drawPercent
+                    presenter.awayWinPercent = odds.awayWinPercent
+                } else {
+                    Task { @MainActor in
+                        await oddsStore.refresh()
+                        if let odds = oddsStore.odds(for: match) {
+                            presenter.homeWinPercent = odds.homeWinPercent
+                            presenter.drawPercent = odds.drawPercent
+                            presenter.awayWinPercent = odds.awayWinPercent
+                        }
+                    }
+                }
+            }
         }
     }
 

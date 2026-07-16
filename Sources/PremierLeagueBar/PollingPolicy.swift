@@ -12,7 +12,13 @@ enum PollingPolicy {
         guard let match else { return 60_000_000_000 }
 
         switch match.status {
-        case "TIMED":
+        case "SCHEDULED", "TIMED":
+            let formatter = ISO8601DateFormatter()
+            if let kickoff = formatter.date(from: match.utcDate) {
+                let delta = kickoff.timeIntervalSinceNow
+                if delta <= 5 * 60 { return 15_000_000_000 }
+                if delta <= 15 * 60 { return 30_000_000_000 }
+            }
             return 60_000_000_000
 
         case "IN_PLAY":
