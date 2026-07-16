@@ -7,3 +7,6 @@ debug_*.json
 
 # API keys
 Sources/TopScore/Resources/APIKeys.plist
+
+# Build artifacts
+.release/
