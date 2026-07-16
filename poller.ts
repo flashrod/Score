@@ -1,10 +1,9 @@
-import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
-
 const API_KEY = Deno.env.get("FOOTBALL_DATA_API_KEY");
 if (!API_KEY) {
   console.error("FOOTBALL_DATA_API_KEY not set");
   Deno.exit(1);
 }
+
 const BASE = "https://api.football-data.org/v4";
 const kv = await Deno.openKv();
 
@@ -66,33 +65,31 @@ async function refresh() {
   }
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   const url = new URL(req.url);
+  const headers = { "content-type": "application/json; charset=utf-8" };
 
   if (url.pathname === "/matches") {
     const cached = await kv.get(["matches"]);
     const last = (await kv.get(["lastRefreshed"])).value as number || 0;
     const matches = (cached.value as any)?.matches || [];
-    const interval = pollInterval(matches);
-    if (Date.now() - last >= interval) refresh();
-    return Response.json(cached.value, {
-      headers: { "content-type": "application/json" },
-    });
+    if (Date.now() - last >= pollInterval(matches)) {
+      refresh();
+    }
+    return new Response(JSON.stringify(cached.value), { headers });
   }
 
   if (url.pathname === "/standings") {
     const cached = await kv.get(["standings"]);
     const last = (await kv.get(["lastRefreshed"])).value as number || 0;
     if (Date.now() - last >= 60_000) refresh();
-    return Response.json(cached.value, {
-      headers: { "content-type": "application/json" },
-    });
+    return new Response(JSON.stringify(cached.value), { headers });
   }
 
   if (url.pathname === "/health") {
     const last = (await kv.get(["lastRefreshed"])).value;
-    return Response.json({ ok: true, lastRefreshed: last });
+    return new Response(JSON.stringify({ ok: true, lastRefreshed: last }), { headers });
   }
 
-  return new Response("not found", { status: 404 });
+  return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers });
 });
