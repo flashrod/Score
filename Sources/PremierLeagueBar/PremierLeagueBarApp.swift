@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         button.action = #selector(togglePopover(_:))
 
         popover.behavior = .transient
-        popover.contentSize = NSSize(width: 340, height: 500)
+        popover.contentSize = NSSize(width: 340, height: 640)
         popover.contentViewController = NSHostingController(
             rootView: ContentView().environmentObject(viewModel)
         )

@@ -1,6 +1,11 @@
 @preconcurrency import Foundation
 import AppKit
 
+enum Tab: String, CaseIterable {
+    case matches = "Matches"
+    case standings = "Standings"
+}
+
 @MainActor
 class MatchViewModel: ObservableObject {
     @Published var matches: [Match] = []
@@ -141,12 +146,33 @@ class MatchViewModel: ObservableObject {
         matches.filter { $0.isFinished }.sorted { $0.utcDate > $1.utcDate }
     }
 
+    var matchdayUpcoming: [Match] {
+        upcomingMatches.filter { $0.matchday == currentMatchday }
+    }
+
+    var matchdayFinished: [Match] {
+        finishedMatches.filter { $0.matchday == currentMatchday }
+    }
+
     var hasLiveMatches: Bool {
         !liveMatches.isEmpty
     }
 
     var liveMatchCount: Int {
         liveMatches.count
+    }
+
+    @Published var selectedTab: Tab = .matches
+
+    var currentMatchday: Int {
+        if let live = liveMatches.first, let md = live.matchday { return md }
+        if let upcoming = upcomingMatches.first, let md = upcoming.matchday { return md }
+        return matches.compactMap(\.matchday).max() ?? 1
+    }
+
+    var displayedMatches: [Match] {
+        let md = currentMatchday
+        return matches.filter { $0.matchday == md || $0.isLive }
     }
 
     @Published var pinnedMatchId: Int?

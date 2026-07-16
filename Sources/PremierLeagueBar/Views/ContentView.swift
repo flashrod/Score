@@ -4,80 +4,125 @@ struct ContentView: View {
     @EnvironmentObject var viewModel: MatchViewModel
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
-                header
-                    .padding(.horizontal, 12)
-                    .padding(.top, 4)
+        VStack(spacing: 0) {
+            header
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
 
-                if viewModel.debugMode {
-                    debugRow
-                        .padding(.horizontal, 12)
-                }
+            tabBar
 
-                if viewModel.isLoading && viewModel.matches.isEmpty {
-                    ProgressView()
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    if viewModel.debugMode {
+                        debugRow
+                            .padding(.horizontal, 12)
+                    }
+
+                    if viewModel.isLoading && viewModel.matches.isEmpty {
+                        ProgressView()
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 40)
+                    }
+
+                    if let error = viewModel.errorMessage {
+                        VStack(spacing: 8) {
+                            Image(systemName: "exclamationmark.triangle")
+                                .foregroundColor(.orange)
+                            Text(error)
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .multilineTextAlignment(.center)
+                        }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 40)
-                }
-
-                if let error = viewModel.errorMessage {
-                    VStack(spacing: 8) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .foregroundColor(.orange)
-                        Text(error)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .multilineTextAlignment(.center)
+                        .padding(.vertical, 30)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 30)
-                }
 
-                if !viewModel.hasLiveMatches && viewModel.upcomingMatches.isEmpty && viewModel.finishedMatches.isEmpty && !viewModel.isLoading && viewModel.errorMessage == nil {
-                    emptyState
-                }
+                    if viewModel.selectedTab == .matches {
+                        matchesContent
+                    } else {
+                        standingsContent
+                    }
 
-                if viewModel.hasLiveMatches {
-                    sectionLabel("LIVE NOW")
-                    liveBanner
-                    ForEach(viewModel.liveMatches) { match in
-                        matchCard(match)
+                    if let lastRefreshed = viewModel.lastRefreshed {
+                        HStack(spacing: 4) {
+                            Text("Updated \(lastRefreshed.formatted(date: .omitted, time: .shortened))")
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.bottom, 4)
                     }
                 }
-
-                if !viewModel.upcomingMatches.isEmpty {
-                    sectionLabel("UPCOMING")
-                    ForEach(Array(viewModel.upcomingMatches.prefix(4))) { match in
-                        matchCard(match)
-                    }
-                }
-
-                if !viewModel.finishedMatches.isEmpty {
-                    sectionLabel("RESULTS")
-                    ForEach(Array(viewModel.finishedMatches.prefix(4))) { match in
-                        matchCard(match)
-                    }
-                }
-
-                if !viewModel.standings.isEmpty {
-                    sectionLabel("")
-                    StandingsView(standings: viewModel.standings)
-                }
-
-                if let lastRefreshed = viewModel.lastRefreshed {
-                    HStack(spacing: 4) {
-                        Text("Updated \(lastRefreshed.formatted(date: .omitted, time: .shortened))")
-                    }
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.bottom, 4)
-                }
+                .padding(.vertical, 8)
             }
-            .padding(.vertical, 8)
         }
-        .frame(width: 340, height: 500)
+        .frame(width: 340)
+    }
+
+    private var tabBar: some View {
+        HStack(spacing: 0) {
+            ForEach(Tab.allCases, id: \.self) { tab in
+                Button(action: { viewModel.selectedTab = tab }) {
+                    Text(tab.rawValue)
+                        .font(.system(size: 11, weight: viewModel.selectedTab == tab ? .semibold : .regular))
+                        .foregroundColor(viewModel.selectedTab == tab ? .primary : .secondary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(viewModel.selectedTab == tab
+                            ? Color(.windowBackgroundColor).opacity(0.5)
+                            : Color.clear)
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .overlay(alignment: .bottom) {
+            Divider()
+        }
+        .padding(.horizontal, 4)
+        .padding(.bottom, 4)
+    }
+
+    @ViewBuilder
+    private var matchesContent: some View {
+        if !viewModel.hasLiveMatches && viewModel.matchdayUpcoming.isEmpty && viewModel.matchdayFinished.isEmpty && !viewModel.isLoading && viewModel.errorMessage == nil {
+            emptyState
+        }
+
+        if viewModel.hasLiveMatches {
+            sectionLabel("LIVE NOW")
+            liveBanner
+            ForEach(viewModel.liveMatches) { match in
+                matchCard(match)
+            }
+        }
+
+        if !viewModel.matchdayUpcoming.isEmpty {
+            sectionLabel("MATCHDAY \(viewModel.currentMatchday)")
+            ForEach(viewModel.matchdayUpcoming) { match in
+                matchCard(match)
+            }
+        }
+
+        if !viewModel.matchdayFinished.isEmpty {
+            sectionLabel("RESULTS")
+            ForEach(viewModel.matchdayFinished) { match in
+                matchCard(match)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var standingsContent: some View {
+        if !viewModel.standings.isEmpty {
+            sectionLabel("")
+            StandingsView(standings: viewModel.standings)
+        } else if !viewModel.isLoading {
+            Text("Standings loading...")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 30)
+        }
     }
 
     private var header: some View {

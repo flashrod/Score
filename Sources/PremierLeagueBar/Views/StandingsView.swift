@@ -27,7 +27,7 @@ struct StandingsView: View {
             .padding(.horizontal)
             .padding(.bottom, 4)
 
-            ForEach(Array(standings.prefix(10).enumerated()), id: \.offset) { idx, entry in
+            ForEach(Array(standings.enumerated()), id: \.offset) { idx, entry in
                 HStack(spacing: 0) {
                     Text("\(idx + 1)")
                         .frame(width: 24, alignment: .leading)
