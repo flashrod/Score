@@ -1,6 +1,6 @@
 cask "premier-league-bar" do
   version "1.0.1"
-  sha256 "c1fd3ec045234ca8c1a4f8e99e2d29374ddbf84e0edb509848750cadfd4a8fca"
+  sha256 "3f8ed05b73aa22457dd8affe0fad8dc7b74cfd7b9d5dd7b7bf1ece0b6c891aa9"
 
   url "https://github.com/flashrod/Score/releases/download/v#{version}/PremierLeagueBar-#{version}.dmg"
   name "Premier League Bar"

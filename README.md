@@ -30,7 +30,13 @@ brew install --cask premier-league-bar
 
 1. Download the latest `.dmg` from [releases](https://github.com/flashrod/Score/releases)
 2. Mount the DMG and drag `PremierLeagueBar.app` to your Applications folder
-3. Set your `FOOTBALL_DATA_API_KEY` environment variable (get a free key at [football-data.org](https://www.football-data.org/))
+3. **Bypass Gatekeeper** (first launch only — the app is ad-hoc signed, not notarized):
+
+   **Option A:** Right-click `PremierLeagueBar.app` in Finder → **Open** → click **Open** in the dialog.
+
+   **Option B:** Go to **System Settings → Privacy & Security** → scroll down and click **Open Anyway** next to the blocked app message.
+
+   > *Only needed once. After registering the exception, the app will open normally.*
 4. Launch the app
 
 ## Features
