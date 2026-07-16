@@ -1,0 +1,44 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Create API key plist from secrets
+        env:
+          FOOTBALL_KEY: ${{ secrets.FOOTBALL_DATA_API_KEY }}
+          ODDS_KEY: ${{ secrets.ODDS_API_KEY }}
+        run: |
+          mkdir -p Sources/PremierLeagueBar/Resources
+          /usr/libexec/PlistBuddy -c "Add FootballDataAPIKey string $FOOTBALL_KEY" \
+            Sources/PremierLeagueBar/Resources/APIKeys.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Set FootballDataAPIKey $FOOTBALL_KEY" \
+            Sources/PremierLeagueBar/Resources/APIKeys.plist
+          /usr/libexec/PlistBuddy -c "Add OddsAPIKey string $ODDS_KEY" \
+            Sources/PremierLeagueBar/Resources/APIKeys.plist 2>/dev/null || \
+          /usr/libexec/PlistBuddy -c "Set OddsAPIKey $ODDS_KEY" \
+            Sources/PremierLeagueBar/Resources/APIKeys.plist
+
+      - uses: swift-actions/setup-swift@v2
+
+      - name: Build and package DMG
+        run: |
+          chmod +x build-release.sh
+          ./build-release.sh
+
+      - name: Upload DMG to release
+        uses: svenstaro/upload-release-action@v2
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          file: .release/PremierLeagueBar-*.dmg
+          tag: ${{ github.ref }}
+          overwrite: true
