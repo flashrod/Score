@@ -41,28 +41,32 @@ function pollInterval(matches: any[]): number {
   }
 }
 
-async function refresh() {
-  if (refreshing) return;
-  refreshing = true;
-  try {
-    const headers = { "X-Auth-Token": API_KEY };
-    const [matchesRes, standingsRes] = await Promise.all([
-      fetch(`${BASE}/competitions/PL/matches?status=SCHEDULED,TIMED,IN_PLAY,PAUSED,FINISHED`, { headers }),
-      fetch(`${BASE}/competitions/PL/standings`, { headers }),
-    ]);
-    const matches = await matchesRes.json();
-    const standings = await standingsRes.json();
-    const ts = Date.now();
-    await Promise.all([
-      kv.set(["matches"], matches),
-      kv.set(["standings"], standings),
-      kv.set(["lastRefreshed"], ts),
-    ]);
-  } catch (err) {
-    console.error("refresh failed:", err);
-  } finally {
-    refreshing = false;
-  }
+let refreshPromise: Promise<void> | null = null;
+
+async function refresh(): Promise<void> {
+  if (refreshPromise) return refreshPromise;
+  refreshPromise = (async () => {
+    try {
+      const headers = { "X-Auth-Token": API_KEY };
+      const [matchesRes, standingsRes] = await Promise.all([
+        fetch(`${BASE}/competitions/PL/matches?status=SCHEDULED,TIMED,IN_PLAY,PAUSED,FINISHED`, { headers }),
+        fetch(`${BASE}/competitions/PL/standings`, { headers }),
+      ]);
+      const matches = await matchesRes.json();
+      const standings = await standingsRes.json();
+      const ts = Date.now();
+      await Promise.all([
+        kv.set(["matches"], matches),
+        kv.set(["standings"], standings),
+        kv.set(["lastRefreshed"], ts),
+      ]);
+    } catch (err) {
+      console.error("refresh failed:", err);
+    } finally {
+      refreshPromise = null;
+    }
+  })();
+  return refreshPromise;
 }
 
 Deno.serve(async (req) => {
@@ -73,17 +77,21 @@ Deno.serve(async (req) => {
     const cached = await kv.get(["matches"]);
     const last = (await kv.get(["lastRefreshed"])).value as number || 0;
     const matches = (cached.value as any)?.matches || [];
-    if (Date.now() - last >= pollInterval(matches)) {
-      refresh();
+    if (!cached.value || Date.now() - last >= pollInterval(matches)) {
+      await refresh();
     }
-    return new Response(JSON.stringify(cached.value), { headers });
+    const result = await kv.get(["matches"]);
+    return new Response(JSON.stringify(result.value ?? { matches: [] }), { headers });
   }
 
   if (url.pathname === "/standings") {
     const cached = await kv.get(["standings"]);
     const last = (await kv.get(["lastRefreshed"])).value as number || 0;
-    if (Date.now() - last >= 60_000) refresh();
-    return new Response(JSON.stringify(cached.value), { headers });
+    if (!cached.value || Date.now() - last >= 60_000) {
+      await refresh();
+    }
+    const result = await kv.get(["standings"]);
+    return new Response(JSON.stringify(result.value ?? { standings: [{ table: [] }] }), { headers });
   }
 
   if (url.pathname === "/health") {
