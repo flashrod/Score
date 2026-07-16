@@ -49,15 +49,19 @@ async function refresh(): Promise<void> {
     try {
       const headers = { "X-Auth-Token": API_KEY };
       const [matchesRes, standingsRes] = await Promise.all([
-        fetch(`${BASE}/competitions/PL/matches?status=SCHEDULED,TIMED,IN_PLAY,PAUSED,FINISHED`, { headers }),
+        fetch(`${BASE}/competitions/PL/matches`, { headers }),
         fetch(`${BASE}/competitions/PL/standings`, { headers }),
       ]);
-      const matches = await matchesRes.json();
-      const standings = await standingsRes.json();
+      const matchesData = await matchesRes.json();
+      const standingsData = await standingsRes.json();
+      if (!matchesData.matches || !Array.isArray(matchesData.matches)) {
+        console.error("unexpected matches response:", JSON.stringify(matchesData).slice(0, 200));
+        return;
+      }
       const ts = Date.now();
       await Promise.all([
-        kv.set(["matches"], matches),
-        kv.set(["standings"], standings),
+        kv.set(["matches"], matchesData),
+        kv.set(["standings"], standingsData),
         kv.set(["lastRefreshed"], ts),
       ]);
     } catch (err) {
