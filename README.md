@@ -26,6 +26,8 @@ brew trust flashrod/tap
 brew install --cask premier-league-bar
 ```
 
+> **First launch:** Go to **System Settings → Privacy & Security** → scroll down and click **Open Anyway**. This is needed once because the app is ad-hoc signed (no Apple Developer account).
+
 ### Manual
 
 1. Download the latest `.dmg` from [releases](https://github.com/flashrod/Score/releases)
@@ -54,7 +56,6 @@ brew install --cask premier-league-bar
 ```bash
 git clone https://github.com/flashrod/Score.git
 cd PremierLeagueBar
-export FOOTBALL_DATA_API_KEY=your_api_key_here
 ./build-and-run.sh
 ```
 
@@ -100,15 +101,6 @@ PollingPolicy ──→ MatchViewModel ←── MatchEventEngine
 | Stoppage time (90+ min) | 3s |
 | Half-time | 15s |
 | Finished / Postponed / Cancelled | 60s / 5min |
-
-## Configuration
-
-Set your `FOOTBALL_DATA_API_KEY` environment variable in your shell profile:
-
-```bash
-# ~/.zshrc
-export FOOTBALL_DATA_API_KEY="your_key_here"
-```
 
 ## License
 
