@@ -3,7 +3,7 @@ set -euo pipefail
 
 APP_NAME="TopScore"
 BUNDLE_ID="com.dylanmascarenhas.TopScore"
-VERSION="1.0.1"
+VERSION="1.1.0"
 
 ARCH=$(uname -m)
 BUILD_DIR=".build/${ARCH}-apple-macosx/release"
