@@ -230,6 +230,10 @@ class MatchViewModel: ObservableObject {
         eventQueue.enqueue(event)
     }
 
+    func toggleNotch() {
+        presenter.toggleNotch()
+    }
+
     func togglePin(_ matchId: Int) {
         if pinnedMatchId == matchId {
             pinnedMatchId = nil

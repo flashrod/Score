@@ -95,19 +95,9 @@ struct TeamSection: View {
 
     @ViewBuilder
     private var crestView: some View {
-        if let url = team.crest.flatMap({ URL(string: $0) }) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFit().padding(4)
-                case .failure:
-                    placeholderCrest
-                case .empty:
-                    ProgressView().scaleEffect(0.5)
-                @unknown default:
-                    placeholderCrest
-                }
-            }
+        if team.crest.flatMap({ URL(string: $0) }) != nil {
+            CrestImage(team.crest, width: 40, height: 40)
+                .padding(4)
         } else {
             placeholderCrest
         }

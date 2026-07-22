@@ -68,6 +68,16 @@ final class DynamicNotchPresenter: ObservableObject {
         updateSubtitle(match: match, nextMatch: nextMatch)
     }
 
+    func toggleNotch() {
+        guard let notch else { return }
+        Task { @MainActor in
+            switch notch.state {
+            case .expanded: await notch.compact()
+            case .compact, .hidden: await notch.expand()
+            }
+        }
+    }
+
     func hide() {
         processingTask?.cancel()
         processingTask = nil
@@ -193,7 +203,7 @@ struct CompactScoreLeading: View {
 
     var body: some View {
         HStack(spacing: 6) {
-            crestImage(presenter.homeCrest)
+            CrestImage(presenter.homeCrest, width: 18, height: 18)
             Text(presenter.homeTeam)
                 .font(.system(size: 16, weight: .bold))
             if presenter.isLive, let h = presenter.homeScore {
@@ -207,21 +217,6 @@ struct CompactScoreLeading: View {
         .foregroundColor(.white)
         .padding(.horizontal, 8)
         .onHover(perform: presenter.updatePreMatchHover)
-    }
-
-    @ViewBuilder
-    private func crestImage(_ url: String?) -> some View {
-        if let url = url.flatMap({ URL(string: $0) }) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFit()
-                default:
-                    Color.clear
-                }
-            }
-            .frame(width: 18, height: 18)
-        }
     }
 }
 
@@ -241,26 +236,11 @@ struct CompactScoreTrailing: View {
             }
             Text(presenter.awayTeam)
                 .font(.system(size: 16, weight: .bold))
-            crestImage(presenter.awayCrest)
+            CrestImage(presenter.awayCrest, width: 18, height: 18)
         }
         .foregroundColor(.white)
         .padding(.horizontal, 8)
         .onHover(perform: presenter.updatePreMatchHover)
-    }
-
-    @ViewBuilder
-    private func crestImage(_ url: String?) -> some View {
-        if let url = url.flatMap({ URL(string: $0) }) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let img):
-                    img.resizable().scaledToFit()
-                default:
-                    Color.clear
-                }
-            }
-            .frame(width: 18, height: 18)
-        }
     }
 }
 
@@ -396,16 +376,8 @@ private struct PreMatchOverviewView: View {
         }
     }
 
-    @ViewBuilder
     private func crestImage(_ urlString: String?) -> some View {
-        if let url = urlString.flatMap(URL.init(string:)) {
-            AsyncImage(url: url) { phase in
-                if case .success(let image) = phase {
-                    image.resizable().scaledToFit()
-                }
-            }
-            .frame(width: 18, height: 18)
-        }
+        CrestImage(urlString, width: 18, height: 18)
     }
 }
 

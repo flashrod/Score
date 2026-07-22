@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import SwiftUI
 
 @main
@@ -37,10 +38,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         viewModel.startPolling()
+        registerGlobalHotkeys()
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         viewModel.stopPolling()
+    }
+
+    private func registerGlobalHotkeys() {
+        let cmdOption = UInt32(cmdKey | optionKey)
+
+        GlobalHotkeyManager.shared.register(
+            id: 1,
+            keyCode: UInt32(kVK_ANSI_Slash),
+            modifiers: cmdOption,
+            handler: { [weak self] in
+                self?.viewModel.toggleNotch()
+            }
+        )
+
+        GlobalHotkeyManager.shared.register(
+            id: 2,
+            keyCode: UInt32(kVK_ANSI_Grave),
+            modifiers: cmdOption,
+            handler: { [weak self] in
+                self?.togglePopover(nil)
+            }
+        )
     }
 
     @objc private func togglePopover(_ sender: Any?) {

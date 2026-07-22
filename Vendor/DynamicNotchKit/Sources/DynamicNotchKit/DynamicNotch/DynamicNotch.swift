@@ -79,7 +79,7 @@ public final class DynamicNotch<Expanded, CompactLeading, CompactTrailing>: Obse
     @Published var disableCompactTrailing: Bool = false
 
     /// Notch Properties
-    @Published private(set) var state: DynamicNotchState = .hidden
+    @Published public private(set) var state: DynamicNotchState = .hidden
     @Published private(set) var notchSize: CGSize = .zero
     @Published private(set) var menubarHeight: CGFloat = 0
     @Published public private(set) var isHovering: Bool = false
